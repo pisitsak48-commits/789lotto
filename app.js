@@ -8,8 +8,8 @@
 // ── Location Themes ──────────────────────────────────────────
 const LOCATION_THEMES = {
   'ปตท':           { color: '#1565C0', dark: '#0D47A1', light: '#BBDEFB', bg: '#E3F2FD' },
-  'ตลาดซอย 17':    { color: '#D84315', dark: '#BF360C', light: '#FFCCBC', bg: '#FFF3E0' },
-  'ตลาดพานทอง':    { color: '#00695C', dark: '#004D40', light: '#B2DFDB', bg: '#E0F2F1' },
+  'ตลาดซอย 17':    { color: '#00695C', dark: '#004D40', light: '#B2DFDB', bg: '#E0F2F1' },
+  'ตลาดพานทอง':    { color: '#D84315', dark: '#BF360C', light: '#FFCCBC', bg: '#FFF3E0' },
   'วัดหนองตำลึง':  { color: '#6A1B9A', dark: '#4A148C', light: '#E1BEE7', bg: '#F3E5F5' },
   'อื่นๆ':          { color: '#455A64', dark: '#263238', light: '#CFD8DC', bg: '#ECEFF1' },
 };
