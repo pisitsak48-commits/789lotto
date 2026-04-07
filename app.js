@@ -57,10 +57,16 @@ function updateDtBtn() {
   const v = el.value;
   if (!v) { btn.textContent = 'เลือกวันเวลา'; return; }
   const d = new Date(v);
-  btn.textContent = d.toLocaleString('th-TH', {
-    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit'
-  });
+  try {
+    btn.textContent = d.toLocaleString('th-TH', {
+      weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  } catch {
+    // iOS fallback
+    const pad = n => String(n).padStart(2, '0');
+    btn.textContent = `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
 }
 
 function shareApp() {

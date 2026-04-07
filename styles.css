@@ -29,7 +29,11 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
-html, body {
+html {
+  background: var(--primary);
+}
+
+body {
   height: 100%;
   background: var(--primary);
   color: var(--text);
@@ -813,11 +817,12 @@ select.input-field {
 
 .a2-dt {
   position: relative;
-  display: flex;
+  display: inline-flex;
   flex-direction: column;
   cursor: pointer;
   padding: 0;
   line-height: 1.3;
+  max-width: 200px;
 }
 
 #a2-dt-btn {
@@ -839,6 +844,8 @@ select.input-field {
   border: none;
   background: none;
   z-index: 1;
+  max-width: 200px;
+  max-height: 40px;
 }
 
 /* ── Stats Bar ───────────────────────────────────────────── */
