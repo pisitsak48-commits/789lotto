@@ -38,8 +38,10 @@
       </button>
       <div class="a2-center">
         <div class="a2-title">บันทึกขายล็อตเตอรี่</div>
-        <button class="a2-dt" id="a2-dt-btn" onclick="triggerDatetime()"></button>
-        <input type="datetime-local" id="sell-datetime" class="a2-dt-input" onchange="updateDtBtn()" />
+        <label class="a2-dt" for="sell-datetime">
+          <span id="a2-dt-btn"></span>
+          <input type="datetime-local" id="sell-datetime" class="a2-dt-input" onchange="updateDtBtn()" />
+        </label>
       </div>
       <button class="a2-share" onclick="shareApp()">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">

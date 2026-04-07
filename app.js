@@ -47,9 +47,7 @@ function updateStatsBar() {
 }
 
 function triggerDatetime() {
-  const el = document.getElementById('sell-datetime');
-  if (!el) return;
-  try { el.showPicker(); } catch { el.click(); }
+  // handled by <label for="sell-datetime"> in HTML
 }
 
 function updateDtBtn() {
@@ -837,9 +835,16 @@ function exportPDF() {
 </body>
 </html>`;
 
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
   const win = window.open('', '_blank');
   if (!win) return showToast('อนุญาต pop-up ก่อนนะครับ', 'error');
-  win.document.write(pageHtml);
+  win.document.write(pageHtml.replace(
+    '<script>window.onload = function(){ window.print(); }<\/script>',
+    isIOS
+      ? '<p style="text-align:center;padding:16px;color:#0D47A1;font-size:14px">📄 กด Share → Print หรือบันทึกเป็น PDF ได้เลยครับ</p>'
+      : '<script>window.onload = function(){ window.print(); }<\/script>'
+  ));
   win.document.close();
 }
 
