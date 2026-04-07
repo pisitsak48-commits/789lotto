@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>บันทึกการขายล็อตเตอรี่</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-page="record" onclick="showPage('record')">
+      <span class="nav-icon">✏️</span>
+      <span>บันทึก</span>
+    </button>
+    <button class="nav-btn" data-page="summary" onclick="showPage('summary')">
+      <span class="nav-icon">📊</span>
+      <span>สรุป</span>
+    </button>
+    <button class="nav-btn" data-page="history" onclick="showPage('history')">
+      <span class="nav-icon">📅</span>
+      <span>ประวัติ</span>
+    </button>
+  </nav>
+
+  <!-- Page: บันทึก -->
+  <div id="page-record" class="page active">
+
+    <!-- Compact Header -->
+    <div class="rec-header">
+      <div class="rec-title-row">
+        <span class="rec-title">🎟️ บันทึกการขาย</span>
+        <span class="rec-date" id="header-date"></span>
+      </div>
+    </div>
+
+    <!-- Quick Panel (single card, no scroll needed) -->
+    <div class="quick-panel">
+
+      <!-- Row 1: วันเวลา -->
+      <div class="qrow">
+        <span class="qrow-icon">📅</span>
+        <input type="datetime-local" id="sell-datetime" class="qdt-input" />
+      </div>
+
+      <!-- Row 2: สถานที่ (segmented scroll) -->
+      <div class="qrow">
+        <span class="qrow-icon">📍</span>
+        <div class="qrow-content">
+          <div class="seg-wrap">
+            <button class="seg-btn loc-btn" data-loc="ปตท" onclick="selectLocation(this)">⛽ ปตท</button>
+            <button class="seg-btn loc-btn" data-loc="ตลาดซอย 17" onclick="selectLocation(this)">🏪 ซอย 17</button>
+            <button class="seg-btn loc-btn" data-loc="ตลาดพานทอง" onclick="selectLocation(this)">🛒 พานทอง</button>
+            <button class="seg-btn loc-btn" data-loc="วัดหนองตำลึง" onclick="selectLocation(this)">⛩️ วัดหนอง</button>
+            <button class="seg-btn loc-btn" data-loc="อื่นๆ" onclick="selectLocation(this)">📍 อื่นๆ</button>
+          </div>
+          <input type="text" id="location-other" class="input-field sub-input hidden" placeholder="ระบุสถานที่..." />
+        </div>
+      </div>
+
+      <!-- Row 3: ชนิด -->
+      <div class="qrow">
+        <span class="qrow-icon">🎫</span>
+        <div class="qrow-content">
+          <div class="seg-wrap">
+            <button class="seg-btn type-btn" data-type="single" onclick="selectType(this)">ใบเดียว</button>
+            <button class="seg-btn type-btn" data-type="set2" onclick="selectType(this)">ชุด 2</button>
+            <button class="seg-btn type-btn" data-type="set5" onclick="selectType(this)">ชุด 5</button>
+            <button class="seg-btn type-btn" data-type="set10" onclick="selectType(this)">ชุด 10</button>
+            <button class="seg-btn type-btn" data-type="custom" onclick="selectType(this)">อื่นๆ ✏️</button>
+          </div>
+          <input type="number" id="custom-sheets" class="input-field sub-input hidden" placeholder="ระบุจำนวนใบ/ชุด" min="1" />
+        </div>
+      </div>
+
+      <!-- Row 4: ราคา (dynamic) -->
+      <div class="qrow" id="price-qrow">
+        <span class="qrow-icon">💰</span>
+        <div class="qrow-content">
+          <div class="seg-wrap" id="price-grid"></div>
+          <input type="number" id="custom-price" class="input-field sub-input hidden" placeholder="ระบุราคา..." min="1" />
+        </div>
+      </div>
+
+      <!-- Row 5: จำนวน + ยอดรวม -->
+      <div class="qty-total-bar">
+        <div class="qty-inline">
+          <button class="qbtn minus" onclick="changeQty(-1)">−</button>
+          <span class="qnum" id="qty-display">1</span>
+          <button class="qbtn plus" onclick="changeQty(1)">+</button>
+          <button class="qshort" onclick="setQty(5)">5</button>
+          <button class="qshort" onclick="setQty(10)">10</button>
+          <button class="qshort" onclick="setQty(20)">20</button>
+          <button class="qshort" onclick="setQty(50)">50</button>
+        </div>
+        <div class="total-pill">
+          <span class="total-amount" id="total-amount">0 ฿</span>
+        </div>
+      </div>
+
+      <!-- Row 6: หมายเหตุ -->
+      <div class="note-bar">
+        <input type="text" id="note-field" class="input-field" placeholder="📝 หมายเหตุ (ถ้ามี)..." />
+      </div>
+
+      <!-- Row 7: บันทึก -->
+      <div class="save-bar">
+        <button class="btn-save" onclick="saveRecord()">💾 บันทึก</button>
+        <button class="btn-clear-sm" onclick="clearForm()" title="ล้าง">🗑️</button>
+      </div>
+
+    </div><!-- end quick-panel -->
+
+    <!-- สรุปวันนี้ -->
+    <div class="today-summary" id="today-summary-section">
+      <div class="section-title-row">
+        <h2 class="section-title">สรุปวันนี้</h2>
+      </div>
+      <div id="today-table-wrap"></div>
+    </div>
+
+  </div><!-- end page-record -->
+
+  <!-- Page: สรุป -->
+  <div id="page-summary" class="page hidden">
+    <header class="app-header">
+      <h1>สรุปยอด</h1>
+    </header>
+    <div class="form-container">
+      <div class="filter-row">
+        <select id="summary-period" class="input-field" onchange="renderSummary()">
+          <option value="today">วันนี้</option>
+          <option value="week">7 วันล่าสุด</option>
+          <option value="month">เดือนนี้</option>
+          <option value="custom">กำหนดเอง</option>
+        </select>
+      </div>
+      <div id="custom-date-range" class="hidden">
+        <div class="date-range-row">
+          <input type="date" id="range-start" class="input-field" onchange="renderSummary()" />
+          <span class="date-sep">–</span>
+          <input type="date" id="range-end" class="input-field" onchange="renderSummary()" />
+        </div>
+      </div>
+      <div id="summary-cards"></div>
+      <div id="summary-table-wrap"></div>
+      <div class="export-row">
+        <button class="btn-export" onclick="exportCSV()">📥 Export CSV</button>
+        <button class="btn-export pdf" onclick="exportPDF()">🖨️ Export PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page: ประวัติ -->
+  <div id="page-history" class="page hidden">
+    <header class="app-header">
+      <h1>ประวัติการขาย</h1>
+    </header>
+    <div class="form-container">
+      <div class="filter-row">
+        <input type="date" id="history-date" class="input-field" onchange="renderHistory()" />
+        <button class="btn-month" onclick="showMonthHistory()">ดูรายเดือน</button>
+      </div>
+      <div id="history-table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- Modal: แก้ไข -->
+  <div id="edit-modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="closeEditModal()"></div>
+    <div class="modal-box">
+      <h2 class="modal-title">✏️ แก้ไขรายการ</h2>
+      <div class="modal-body">
+        <label>วันเวลา</label>
+        <input type="datetime-local" id="edit-datetime" class="input-field" />
+        <label>สถานที่</label>
+        <input type="text" id="edit-location" class="input-field" />
+        <label>ชนิด</label>
+        <input type="text" id="edit-type" class="input-field" readonly />
+        <label>ราคาต่อหน่วย (บาท)</label>
+        <input type="number" id="edit-price" class="input-field" min="1" oninput="recalcEditTotal()" />
+        <label>จำนวน</label>
+        <input type="number" id="edit-qty" class="input-field" min="1" oninput="recalcEditTotal()" />
+        <label>ยอดรวม</label>
+        <input type="text" id="edit-total" class="input-field" readonly />
+        <label>หมายเหตุ</label>
+        <input type="text" id="edit-note" class="input-field" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn-save" onclick="saveEdit()">💾 บันทึก</button>
+        <button class="btn-delete" onclick="deleteRecord()">🗑️ ลบ</button>
+        <button class="btn-clear" onclick="closeEditModal()">ยกเลิก</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
