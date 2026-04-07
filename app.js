@@ -787,124 +787,60 @@ function exportPDF() {
     </tr>`;
   });
 
-  document.getElementById('print-area').innerHTML = `
-    <div style="font-family:'Noto Sans Thai','Sarabun',sans-serif">
-      <h2 style="font-size:18px;color:#0D47A1;margin:0 0 4px">รายงานการขายล็อตเตอรี่</h2>
-      <p style="color:#64748b;margin:0 0 14px;font-size:12px">ช่วงเวลา: ${start} ถึง ${end}</p>
-      <div style="display:flex;gap:12px;margin-bottom:16px">
-        <div style="flex:1;background:#E3F2FD;border-radius:8px;padding:10px 14px">
-          <div style="font-size:10px;color:#64748b">ยอดขายรวม</div>
-          <div style="font-size:22px;font-weight:800;color:#0D47A1">${totalSales.toLocaleString('th-TH')}</div>
-          <div style="font-size:10px;color:#64748b">บาท</div>
-        </div>
-        <div style="flex:1;background:#E3F2FD;border-radius:8px;padding:10px 14px">
-          <div style="font-size:10px;color:#64748b">จำนวนรายการ</div>
-          <div style="font-size:22px;font-weight:800;color:#0D47A1">${records.length}</div>
-          <div style="font-size:10px;color:#64748b">รายการ (${totalQty} หน่วย)</div>
-        </div>
-      </div>
-      <table style="width:100%;border-collapse:collapse;font-size:11px">
-        <thead>
-          <tr style="background:#0D47A1;color:#ffffff">
-            <th style="padding:7px 5px;text-align:left">วันเวลา</th>
-            <th style="padding:7px 5px;text-align:left">สถานที่</th>
-            <th style="padding:7px 5px;text-align:left">ชนิด</th>
-            <th style="padding:7px 5px;text-align:right">ราคา</th>
-            <th style="padding:7px 5px;text-align:center">จำนวน</th>
-            <th style="padding:7px 5px;text-align:right">รวม</th>
-            <th style="padding:7px 5px;text-align:left">หมายเหตุ</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-        <tfoot>
-          <tr style="background:#FFF9C4;font-weight:700">
-            <td colspan="4" style="padding:7px 5px">รวมทั้งหมด</td>
-            <td style="padding:7px 5px;text-align:center">${totalQty}</td>
-            <td style="padding:7px 5px;text-align:right;color:#0D47A1">${totalSales.toLocaleString('th-TH')}</td>
-            <td></td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>`;
+  const pageHtml = `<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8"/>
+  <title>รายงานล็อตเตอรี่ ${start}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700;800&display=swap');
+    body { font-family:'Sarabun',sans-serif; font-size:13px; color:#1e293b; padding:20px; margin:0; }
+    h2 { font-size:18px; color:#0D47A1; margin:0 0 4px; }
+    p  { color:#64748b; margin:0 0 14px; font-size:12px; }
+    .cards { display:flex; gap:12px; margin-bottom:16px; }
+    .card  { flex:1; background:#E3F2FD; border-radius:8px; padding:10px 14px; }
+    .card .lbl { font-size:10px; color:#64748b; }
+    .card .val { font-size:22px; font-weight:800; color:#0D47A1; }
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    thead tr { background:#0D47A1; color:#fff; }
+    th { padding:7px 5px; text-align:left; }
+    td { padding:6px 5px; }
+    tfoot tr { background:#FFF9C4; font-weight:700; }
+    @media print {
+      body { padding:10px; }
+      button { display:none; }
+    }
+  </style>
+</head>
+<body>
+  <h2>รายงานการขายล็อตเตอรี่</h2>
+  <p>ช่วงเวลา: ${start} ถึง ${end}</p>
+  <div class="cards">
+    <div class="card"><div class="lbl">ยอดขายรวม</div><div class="val">${totalSales.toLocaleString('th-TH')}</div><div class="lbl">บาท</div></div>
+    <div class="card"><div class="lbl">จำนวนรายการ</div><div class="val">${records.length}</div><div class="lbl">รายการ (${totalQty} หน่วย)</div></div>
+  </div>
+  <table>
+    <thead><tr>
+      <th>วันเวลา</th><th>สถานที่</th><th>ชนิด</th>
+      <th style="text-align:right">ราคา</th><th style="text-align:center">จำนวน</th>
+      <th style="text-align:right">รวม</th><th>หมายเหตุ</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr>
+      <td colspan="4">รวมทั้งหมด</td>
+      <td style="text-align:center">${totalQty}</td>
+      <td style="text-align:right;color:#0D47A1">${totalSales.toLocaleString('th-TH')}</td>
+      <td></td>
+    </tr></tfoot>
+  </table>
+  <script>window.onload = function(){ window.print(); }<\/script>
+</body>
+</html>`;
 
-  window.print();
-}
-
-  if (records.length === 0) return showToast('ไม่มีข้อมูลสำหรับ Export', 'error');
-
-  const totalSales = records.reduce((a, r) => a + r.total, 0);
-  const totalQty   = records.reduce((a, r) => a + r.qty, 0);
-
-  // Build rows
-  let rows = '';
-  records.forEach((r, i) => {
-    const bg = i % 2 === 0 ? '#ffffff' : '#f0f4f8';
-    const time = r.datetime ? r.datetime.replace('T',' ').slice(0,16) : '';
-    rows += `<tr style="background:${bg}">
-      <td>${escHtml(time)}</td>
-      <td>${escHtml(r.location)}</td>
-      <td>${escHtml(r.typeLabel || r.type)}</td>
-      <td style="text-align:right">${(r.price||0).toLocaleString('th-TH')}</td>
-      <td style="text-align:center">${r.qty}</td>
-      <td style="text-align:right;font-weight:700">${(r.total||0).toLocaleString('th-TH')}</td>
-      <td>${escHtml(r.note||'')}</td>
-    </tr>`;
-  });
-
-  const html = `
-    <div style="font-family:'Noto Sans Thai','Sarabun',sans-serif;font-size:12px;color:#1e293b;padding:16px">
-      <h2 style="font-size:16px;color:#0D47A1;margin:0 0 4px">รายงานการขายล็อตเตอรี่</h2>
-      <p style="color:#64748b;margin:0 0 14px">ช่วงเวลา: ${start} ถึง ${end}</p>
-      <div style="display:flex;gap:16px;margin-bottom:14px">
-        <div style="flex:1;background:#E3F2FD;border-radius:8px;padding:10px 14px">
-          <div style="font-size:10px;color:#64748b;text-transform:uppercase">ยอดขายรวม</div>
-          <div style="font-size:20px;font-weight:800;color:#0D47A1">${totalSales.toLocaleString('th-TH')}</div>
-          <div style="font-size:10px;color:#64748b">บาท</div>
-        </div>
-        <div style="flex:1;background:#E3F2FD;border-radius:8px;padding:10px 14px">
-          <div style="font-size:10px;color:#64748b;text-transform:uppercase">จำนวนรายการ</div>
-          <div style="font-size:20px;font-weight:800;color:#0D47A1">${records.length}</div>
-          <div style="font-size:10px;color:#64748b">รายการ (${totalQty} หน่วย)</div>
-        </div>
-      </div>
-      <table style="width:100%;border-collapse:collapse;font-size:11px">
-        <thead>
-          <tr style="background:#0D47A1;color:#fff">
-            <th style="padding:7px 6px;text-align:left">วันเวลา</th>
-            <th style="padding:7px 6px;text-align:left">สถานที่</th>
-            <th style="padding:7px 6px;text-align:left">ชนิด</th>
-            <th style="padding:7px 6px;text-align:right">ราคา</th>
-            <th style="padding:7px 6px;text-align:center">จำนวน</th>
-            <th style="padding:7px 6px;text-align:right">รวม</th>
-            <th style="padding:7px 6px;text-align:left">หมายเหตุ</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-        <tfoot>
-          <tr style="background:#FFF9C4;font-weight:700">
-            <td colspan="4" style="padding:7px 6px">รวมทั้งหมด</td>
-            <td style="padding:7px 6px;text-align:center">${totalQty}</td>
-            <td style="padding:7px 6px;text-align:right">${totalSales.toLocaleString('th-TH')}</td>
-            <td></td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>`;
-
-  const el = document.createElement('div');
-  el.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px';
-  el.innerHTML = html;
-  document.body.appendChild(el);
-
-  html2pdf().set({
-    margin: 8,
-    filename: `lottery_${start}_${end}.pdf`,
-    html2canvas: { scale: 2, useCORS: true, logging: false },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  }).from(el).save().then(() => {
-    document.body.removeChild(el);
-    showToast('Export PDF สำเร็จ');
-  });
+  const win = window.open('', '_blank');
+  if (!win) return showToast('อนุญาต pop-up ก่อนนะครับ', 'error');
+  win.document.write(pageHtml);
+  win.document.close();
 }
 
 // ── Toast ─────────────────────────────────────────────────────
