@@ -760,8 +760,8 @@ function exportCSV() {
 
 // ── Export PDF ────────────────────────────────────────────────
 function exportPDF() {
-  if (typeof window.jspdf === 'undefined') {
-    return showToast('กำลังโหลด jsPDF...', 'error');
+  if (typeof html2pdf === 'undefined') {
+    return showToast('กำลังโหลด html2pdf...', 'error');
   }
 
   const period = document.getElementById('summary-period')?.value;
@@ -773,41 +773,79 @@ function exportPDF() {
 
   if (records.length === 0) return showToast('ไม่มีข้อมูลสำหรับ Export', 'error');
 
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-  // Header text (basic Latin fallback since Thai needs custom font)
-  doc.setFontSize(16);
-  doc.text(`Lottery Sales Report`, 14, 20);
-  doc.setFontSize(11);
-  doc.text(`Period: ${start} to ${end}`, 14, 28);
-
   const totalSales = records.reduce((a, r) => a + r.total, 0);
-  doc.text(`Total Sales: ${totalSales.toLocaleString()} THB  |  Records: ${records.length}`, 14, 35);
+  const totalQty   = records.reduce((a, r) => a + r.qty, 0);
 
-  const tableData = records.map(r => [
-    r.datetime ? r.datetime.replace('T', ' ').slice(0, 16) : '',
-    r.location || '',
-    r.typeLabel || r.type || '',
-    r.price?.toLocaleString() || '',
-    String(r.qty),
-    r.total?.toLocaleString() || '',
-    r.note || ''
-  ]);
-
-  doc.autoTable({
-    startY: 42,
-    head: [['Datetime', 'Location', 'Type', 'Price', 'Qty', 'Total', 'Note']],
-    body: tableData,
-    styles: { fontSize: 9, cellPadding: 3 },
-    headStyles: { fillColor: [26, 26, 46], textColor: [245, 166, 35] },
-    alternateRowStyles: { fillColor: [240, 244, 250] },
-    foot: [['', '', '', '', records.reduce((a, r) => a + r.qty, 0), totalSales.toLocaleString(), '']],
-    footStyles: { fillColor: [245, 166, 35], textColor: [26, 26, 46], fontStyle: 'bold' }
+  // Build rows
+  let rows = '';
+  records.forEach((r, i) => {
+    const bg = i % 2 === 0 ? '#ffffff' : '#f0f4f8';
+    const time = r.datetime ? r.datetime.replace('T',' ').slice(0,16) : '';
+    rows += `<tr style="background:${bg}">
+      <td>${escHtml(time)}</td>
+      <td>${escHtml(r.location)}</td>
+      <td>${escHtml(r.typeLabel || r.type)}</td>
+      <td style="text-align:right">${(r.price||0).toLocaleString('th-TH')}</td>
+      <td style="text-align:center">${r.qty}</td>
+      <td style="text-align:right;font-weight:700">${(r.total||0).toLocaleString('th-TH')}</td>
+      <td>${escHtml(r.note||'')}</td>
+    </tr>`;
   });
 
-  doc.save(`lottery_${start}_${end}.pdf`);
-  showToast('Export PDF สำเร็จ');
+  const html = `
+    <div style="font-family:'Noto Sans Thai','Sarabun',sans-serif;font-size:12px;color:#1e293b;padding:16px">
+      <h2 style="font-size:16px;color:#0D47A1;margin:0 0 4px">รายงานการขายล็อตเตอรี่</h2>
+      <p style="color:#64748b;margin:0 0 14px">ช่วงเวลา: ${start} ถึง ${end}</p>
+      <div style="display:flex;gap:16px;margin-bottom:14px">
+        <div style="flex:1;background:#E3F2FD;border-radius:8px;padding:10px 14px">
+          <div style="font-size:10px;color:#64748b;text-transform:uppercase">ยอดขายรวม</div>
+          <div style="font-size:20px;font-weight:800;color:#0D47A1">${totalSales.toLocaleString('th-TH')}</div>
+          <div style="font-size:10px;color:#64748b">บาท</div>
+        </div>
+        <div style="flex:1;background:#E3F2FD;border-radius:8px;padding:10px 14px">
+          <div style="font-size:10px;color:#64748b;text-transform:uppercase">จำนวนรายการ</div>
+          <div style="font-size:20px;font-weight:800;color:#0D47A1">${records.length}</div>
+          <div style="font-size:10px;color:#64748b">รายการ (${totalQty} หน่วย)</div>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead>
+          <tr style="background:#0D47A1;color:#fff">
+            <th style="padding:7px 6px;text-align:left">วันเวลา</th>
+            <th style="padding:7px 6px;text-align:left">สถานที่</th>
+            <th style="padding:7px 6px;text-align:left">ชนิด</th>
+            <th style="padding:7px 6px;text-align:right">ราคา</th>
+            <th style="padding:7px 6px;text-align:center">จำนวน</th>
+            <th style="padding:7px 6px;text-align:right">รวม</th>
+            <th style="padding:7px 6px;text-align:left">หมายเหตุ</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+        <tfoot>
+          <tr style="background:#FFF9C4;font-weight:700">
+            <td colspan="4" style="padding:7px 6px">รวมทั้งหมด</td>
+            <td style="padding:7px 6px;text-align:center">${totalQty}</td>
+            <td style="padding:7px 6px;text-align:right">${totalSales.toLocaleString('th-TH')}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>`;
+
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px';
+  el.innerHTML = html;
+  document.body.appendChild(el);
+
+  html2pdf().set({
+    margin: 8,
+    filename: `lottery_${start}_${end}.pdf`,
+    html2canvas: { scale: 2, useCORS: true, logging: false },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  }).from(el).save().then(() => {
+    document.body.removeChild(el);
+    showToast('Export PDF สำเร็จ');
+  });
 }
 
 // ── Toast ─────────────────────────────────────────────────────
