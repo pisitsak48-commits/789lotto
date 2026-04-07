@@ -211,46 +211,96 @@ function renderPriceGrid() {
   type.prices.forEach(p => {
     const btn = document.createElement('button');
     btn.className = 'price-btn' + (type.highlight === p ? ' highlight' : '');
-    btn.textContent = p.toLocaleString('th-TH');
-    btn.onclick = () => selectPrice(btn, p);
+    // inner: label + count badge
+    btn.innerHTML = `<span class="price-label">${p.toLocaleString('th-TH')}</span><span class="price-count">1</span>`;
+    attachPriceBtnHandlers(btn, p);
     grid.appendChild(btn);
   });
 
   if (type.hasCustomPrice || state.selectedType === 'custom') {
     const btn = document.createElement('button');
     btn.className = 'price-btn';
-    btn.textContent = 'กำหนดเอง';
-    btn.onclick = () => {
-      selectPrice(btn, null);
-      customPriceInput.classList.remove('hidden');
-      customPriceInput.focus();
-    };
+    btn.innerHTML = '<span class="price-label">กำหนดเอง</span><span class="price-count">1</span>';
+    btn.addEventListener('click', () => {
+      if (state.selectedPrice === null && btn.classList.contains('selected')) {
+        // already on custom — increment
+        state.qty = Math.max(1, state.qty + 1);
+        updateQtyDisplay();
+        calcTotal();
+      } else {
+        document.querySelectorAll('.price-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        state.selectedPrice = null;
+        state.qty = 1;
+        updateQtyDisplay();
+        customPriceInput.classList.remove('hidden');
+        customPriceInput.focus();
+        calcTotal();
+      }
+    });
     grid.appendChild(btn);
   }
 }
 
+// ── Long-press helpers ───────────────────────────────────────
+let _lpTimer = null;
+
+function attachPriceBtnHandlers(btn, price) {
+  // Tap → +1 qty (first tap selects, subsequent tap = count up)
+  btn.addEventListener('click', () => {
+    if (state.selectedPrice === price) {
+      state.qty += 1;
+    } else {
+      document.querySelectorAll('.price-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      state.selectedPrice = price;
+      document.getElementById('custom-price').classList.add('hidden');
+      state.qty = 1;
+    }
+    updateQtyDisplay();
+    updatePriceBadge(btn);
+    calcTotal();
+  });
+
+  // Long-press = −1 qty
+  const startLp = () => {
+    _lpTimer = setTimeout(() => {
+      _lpTimer = null;
+      if (state.selectedPrice === price && state.qty > 1) {
+        state.qty -= 1;
+        updateQtyDisplay();
+        updatePriceBadge(btn);
+        calcTotal();
+        if (navigator.vibrate) navigator.vibrate(30);
+      }
+    }, 450);
+  };
+  const cancelLp = () => { if (_lpTimer) { clearTimeout(_lpTimer); _lpTimer = null; } };
+
+  btn.addEventListener('touchstart', startLp, { passive: true });
+  btn.addEventListener('touchend',   cancelLp);
+  btn.addEventListener('touchmove',  cancelLp);
+  btn.addEventListener('mousedown',  startLp);
+  btn.addEventListener('mouseup',    cancelLp);
+  btn.addEventListener('mouseleave', cancelLp);
+}
+
+function updateQtyDisplay() {
+  document.getElementById('qty-display').textContent = state.qty;
+}
+
+function updatePriceBadge(btn) {
+  const badge = btn.querySelector('.price-count');
+  if (badge) badge.textContent = state.qty;
+}
+
 function selectPrice(btn, price) {
+  // used only from edit modal — just highlight without qty change
   document.querySelectorAll('.price-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
   state.selectedPrice = price;
-
   const customPriceInput = document.getElementById('custom-price');
-  if (price !== null) {
-    customPriceInput.classList.add('hidden');
-  }
-  calcTotal();
-}
-
-// ── Quantity ─────────────────────────────────────────────────
-function changeQty(delta) {
-  state.qty = Math.max(1, state.qty + delta);
-  document.getElementById('qty-display').textContent = state.qty;
-  calcTotal();
-}
-
-function setQty(n) {
-  state.qty = n;
-  document.getElementById('qty-display').textContent = n;
+  if (price !== null) customPriceInput.classList.add('hidden');
   calcTotal();
 }
 
@@ -341,7 +391,7 @@ function clearForm() {
   document.getElementById('note-field').value = '';
   document.getElementById('price-grid').innerHTML = '';
   state = { selectedLocation: prevLocation, selectedType: null, selectedPrice: null, qty: 1 };
-  document.getElementById('qty-display').textContent = 1;
+  document.getElementById('qty-display').textContent = 0;
   document.getElementById('total-amount').textContent = '0 บาท';
 }
 

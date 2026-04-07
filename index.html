@@ -75,8 +75,8 @@
         </div>
       </div>
 
-      <!-- Row 4: ราคา (dynamic) -->
-      <div class="qrow" id="price-qrow">
+      <!-- Row 4: ราคา (dynamic) — กดเพิ่ม qty / กดค้างลด qty -->
+      <div class="qrow price-qrow" id="price-qrow">
         <span class="qrow-icon">💰</span>
         <div class="qrow-content">
           <div class="seg-wrap" id="price-grid"></div>
@@ -84,19 +84,15 @@
         </div>
       </div>
 
-      <!-- Row 5: จำนวน + ยอดรวม -->
+      <!-- Row 5: ยอดรวม (ซ้าย) + จำนวน (ขวา) -->
       <div class="qty-total-bar">
-        <div class="qty-inline">
-          <button class="qbtn minus" onclick="changeQty(-1)">−</button>
-          <span class="qnum" id="qty-display">1</span>
-          <button class="qbtn plus" onclick="changeQty(1)">+</button>
-          <button class="qshort" onclick="setQty(5)">5</button>
-          <button class="qshort" onclick="setQty(10)">10</button>
-          <button class="qshort" onclick="setQty(20)">20</button>
-          <button class="qshort" onclick="setQty(50)">50</button>
-        </div>
         <div class="total-pill">
-          <span class="total-amount" id="total-amount">0 ฿</span>
+          <span class="total-label-sm">ยอดรวม</span>
+          <span class="total-amount" id="total-amount">0 บาท</span>
+        </div>
+        <div class="qty-badge-wrap">
+          <span class="qty-label-sm">จำนวน</span>
+          <span class="qnum" id="qty-display">0</span>
         </div>
       </div>
 
