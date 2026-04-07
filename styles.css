@@ -1441,3 +1441,17 @@ select.input-field {
   margin: 0 auto;
 }
 
+
+/* ===== Print / PDF ===== */
+@media print {
+  body > *:not(#print-area) { display: none !important; }
+  #print-area {
+    display: block !important;
+    font-family: 'Noto Sans Thai', 'Sarabun', 'TH Sarabun New', sans-serif;
+    font-size: 12px;
+    color: #1e293b;
+    padding: 16px;
+  }
+  #print-area table { page-break-inside: auto; }
+  #print-area tr { page-break-inside: avoid; }
+}

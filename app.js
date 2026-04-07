@@ -760,16 +760,75 @@ function exportCSV() {
 
 // ── Export PDF ────────────────────────────────────────────────
 function exportPDF() {
-  if (typeof html2pdf === 'undefined') {
-    return showToast('กำลังโหลด html2pdf...', 'error');
-  }
-
   const period = document.getElementById('summary-period')?.value;
   const { start, end } = getPeriodRange(period);
   const records = loadRecords().filter(r => {
     const d = r.datetime ? r.datetime.slice(0, 10) : '';
     return d >= start && d <= end;
   });
+
+  if (records.length === 0) return showToast('ไม่มีข้อมูลสำหรับ Export', 'error');
+
+  const totalSales = records.reduce((a, r) => a + r.total, 0);
+  const totalQty   = records.reduce((a, r) => a + r.qty, 0);
+
+  let rows = '';
+  records.forEach((r, i) => {
+    const bg = i % 2 === 0 ? '#ffffff' : '#f0f4f8';
+    const time = r.datetime ? r.datetime.replace('T', ' ').slice(0, 16) : '';
+    rows += `<tr style="background:${bg}">
+      <td style="padding:6px 5px">${escHtml(time)}</td>
+      <td style="padding:6px 5px">${escHtml(r.location)}</td>
+      <td style="padding:6px 5px">${escHtml(r.typeLabel || r.type)}</td>
+      <td style="padding:6px 5px;text-align:right">${(r.price||0).toLocaleString('th-TH')}</td>
+      <td style="padding:6px 5px;text-align:center">${r.qty}</td>
+      <td style="padding:6px 5px;text-align:right;font-weight:700;color:#0D47A1">${(r.total||0).toLocaleString('th-TH')}</td>
+      <td style="padding:6px 5px">${escHtml(r.note || '')}</td>
+    </tr>`;
+  });
+
+  document.getElementById('print-area').innerHTML = `
+    <div style="font-family:'Noto Sans Thai','Sarabun',sans-serif">
+      <h2 style="font-size:18px;color:#0D47A1;margin:0 0 4px">รายงานการขายล็อตเตอรี่</h2>
+      <p style="color:#64748b;margin:0 0 14px;font-size:12px">ช่วงเวลา: ${start} ถึง ${end}</p>
+      <div style="display:flex;gap:12px;margin-bottom:16px">
+        <div style="flex:1;background:#E3F2FD;border-radius:8px;padding:10px 14px">
+          <div style="font-size:10px;color:#64748b">ยอดขายรวม</div>
+          <div style="font-size:22px;font-weight:800;color:#0D47A1">${totalSales.toLocaleString('th-TH')}</div>
+          <div style="font-size:10px;color:#64748b">บาท</div>
+        </div>
+        <div style="flex:1;background:#E3F2FD;border-radius:8px;padding:10px 14px">
+          <div style="font-size:10px;color:#64748b">จำนวนรายการ</div>
+          <div style="font-size:22px;font-weight:800;color:#0D47A1">${records.length}</div>
+          <div style="font-size:10px;color:#64748b">รายการ (${totalQty} หน่วย)</div>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead>
+          <tr style="background:#0D47A1;color:#ffffff">
+            <th style="padding:7px 5px;text-align:left">วันเวลา</th>
+            <th style="padding:7px 5px;text-align:left">สถานที่</th>
+            <th style="padding:7px 5px;text-align:left">ชนิด</th>
+            <th style="padding:7px 5px;text-align:right">ราคา</th>
+            <th style="padding:7px 5px;text-align:center">จำนวน</th>
+            <th style="padding:7px 5px;text-align:right">รวม</th>
+            <th style="padding:7px 5px;text-align:left">หมายเหตุ</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+        <tfoot>
+          <tr style="background:#FFF9C4;font-weight:700">
+            <td colspan="4" style="padding:7px 5px">รวมทั้งหมด</td>
+            <td style="padding:7px 5px;text-align:center">${totalQty}</td>
+            <td style="padding:7px 5px;text-align:right;color:#0D47A1">${totalSales.toLocaleString('th-TH')}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>`;
+
+  window.print();
+}
 
   if (records.length === 0) return showToast('ไม่มีข้อมูลสำหรับ Export', 'error');
 
