@@ -28,94 +28,117 @@
   <!-- Page: บันทึก -->
   <div id="page-record" class="page active">
 
-    <!-- Compact Header -->
-    <div class="rec-header">
-      <div class="rec-title-row">
-        <span class="rec-title">🎟️ บันทึกการขาย</span>
-        <span class="rec-date" id="header-date"></span>
+    <!-- ── App Header ── -->
+    <header class="app2-hdr">
+      <button class="a2-menu" onclick="toggleNav()">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+          <rect y="3" width="20" height="2.2" rx="1.1"/>
+          <rect y="9" width="20" height="2.2" rx="1.1"/>
+          <rect y="15" width="20" height="2.2" rx="1.1"/>
+        </svg>
+      </button>
+      <div class="a2-center">
+        <div class="a2-title">บันทึกขายล็อตเตอรี่</div>
+        <button class="a2-dt" id="a2-dt-btn" onclick="triggerDatetime()"></button>
+        <input type="datetime-local" id="sell-datetime" class="a2-dt-input" onchange="updateDtBtn()" />
+      </div>
+      <button class="a2-share" onclick="shareApp()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/>
+          <polyline points="16 6 12 2 8 6"/>
+          <line x1="12" y1="2" x2="12" y2="15"/>
+        </svg>
+      </button>
+    </header>
+
+    <!-- ── Stats Bar ── -->
+    <div class="rec-stats">
+      <div class="rs-cell">
+        <div class="rs-lbl" id="rsb-loc-lbl">ยอดรวมเฉพาะ</div>
+        <div class="rs-row">
+          <span class="rs-num theme-text" id="rsb-loc-val">0</span>
+          <span class="rs-unit">฿</span>
+        </div>
+      </div>
+      <div class="rs-sep"></div>
+      <div class="rs-cell rs-right">
+        <div class="rs-lbl">ยอดรวมทั้งหมดวันนี้</div>
+        <div class="rs-row">
+          <span class="rs-num theme-text" id="rsb-all-val">0</span>
+          <span class="rs-unit">฿</span>
+        </div>
       </div>
     </div>
 
-    <!-- Quick Panel (single card, no scroll needed) -->
-    <div class="quick-panel">
-
-      <!-- Row 1: วันเวลา -->
-      <div class="qrow">
-        <span class="qrow-icon">📅</span>
-        <input type="datetime-local" id="sell-datetime" class="qdt-input" />
+    <!-- ── Location ── -->
+    <div class="seg-sec">
+      <div class="seg-sec-lbl">เลือกสถานที่ขาย</div>
+      <div class="seg-row">
+        <button class="seg-c loc-btn" data-loc="ปตท" onclick="selectLocation(this)">ปตท</button>
+        <button class="seg-c loc-btn" data-loc="ตลาดซอย 17" onclick="selectLocation(this)">ตลาดซอย17</button>
+        <button class="seg-c loc-btn" data-loc="ตลาดพานทอง" onclick="selectLocation(this)">พานทอง</button>
+        <button class="seg-c loc-btn" data-loc="วัดหนองตำลึง" onclick="selectLocation(this)">วัดหนองตำลึง</button>
+        <button class="seg-c loc-btn" data-loc="อื่นๆ" onclick="selectLocation(this)">อื่นๆ</button>
       </div>
-
-      <!-- Row 2: สถานที่ (segmented scroll) -->
-      <div class="qrow">
-        <span class="qrow-icon">📍</span>
-        <div class="qrow-content">
-          <div class="seg-wrap">
-            <button class="seg-btn loc-btn" data-loc="ปตท" onclick="selectLocation(this)">⛽ ปตท</button>
-            <button class="seg-btn loc-btn" data-loc="ตลาดซอย 17" onclick="selectLocation(this)">🏪 ซอย 17</button>
-            <button class="seg-btn loc-btn" data-loc="ตลาดพานทอง" onclick="selectLocation(this)">🛒 พานทอง</button>
-            <button class="seg-btn loc-btn" data-loc="วัดหนองตำลึง" onclick="selectLocation(this)">⛩️ วัดหนอง</button>
-            <button class="seg-btn loc-btn" data-loc="อื่นๆ" onclick="selectLocation(this)">📍 อื่นๆ</button>
-          </div>
-          <input type="text" id="location-other" class="input-field sub-input hidden" placeholder="ระบุสถานที่..." />
-        </div>
-      </div>
-
-      <!-- Row 3: ชนิด -->
-      <div class="qrow">
-        <span class="qrow-icon">🎫</span>
-        <div class="qrow-content">
-          <div class="seg-wrap">
-            <button class="seg-btn type-btn" data-type="single" onclick="selectType(this)">ใบเดียว</button>
-            <button class="seg-btn type-btn" data-type="set2" onclick="selectType(this)">ชุด 2</button>
-            <button class="seg-btn type-btn" data-type="set5" onclick="selectType(this)">ชุด 5</button>
-            <button class="seg-btn type-btn" data-type="set10" onclick="selectType(this)">ชุด 10</button>
-            <button class="seg-btn type-btn" data-type="custom" onclick="selectType(this)">อื่นๆ ✏️</button>
-          </div>
-          <input type="number" id="custom-sheets" class="input-field sub-input hidden" placeholder="ระบุจำนวนใบ/ชุด" min="1" />
-        </div>
-      </div>
-
-      <!-- Row 4: ราคา (dynamic) — กดเพิ่ม qty / กดค้างลด qty -->
-      <div class="qrow price-qrow" id="price-qrow">
-        <span class="qrow-icon">💰</span>
-        <div class="qrow-content">
-          <div class="seg-wrap" id="price-grid"></div>
-          <input type="number" id="custom-price" class="input-field sub-input hidden" placeholder="ระบุราคา..." min="1" />
-        </div>
-      </div>
-
-      <!-- Row 5: ยอดรวม (ซ้าย) + จำนวน (ขวา) -->
-      <div class="qty-total-bar">
-        <div class="total-pill">
-          <span class="total-label-sm">ยอดรวม</span>
-          <span class="total-amount" id="total-amount">0 บาท</span>
-        </div>
-        <div class="qty-badge-wrap">
-          <span class="qty-label-sm">จำนวน</span>
-          <span class="qnum" id="qty-display">0</span>
-        </div>
-      </div>
-
-      <!-- Row 6: หมายเหตุ -->
-      <div class="note-bar">
-        <input type="text" id="note-field" class="input-field" placeholder="📝 หมายเหตุ (ถ้ามี)..." />
-      </div>
-
-      <!-- Row 7: บันทึก -->
-      <div class="save-bar">
-        <button class="btn-save" onclick="saveRecord()">💾 บันทึก</button>
-        <button class="btn-clear-sm" onclick="clearForm()" title="ล้าง">🗑️</button>
-      </div>
-
-    </div><!-- end quick-panel -->
-
-    <!-- สรุปวันนี้ -->
-    <div class="today-summary" id="today-summary-section">
-      <div class="section-title-row">
-        <h2 class="section-title">สรุปวันนี้</h2>
-      </div>
-      <div id="today-table-wrap"></div>
+      <input type="text" id="location-other" class="input-field seg-other hidden" placeholder="ระบุสถานที่..." />
     </div>
+
+    <!-- ── Type ── -->
+    <div class="seg-sec">
+      <div class="seg-sec-lbl">เลือกประเภท</div>
+      <div class="seg-row">
+        <button class="seg-c type-btn" data-type="single" onclick="selectType(this)">ใบเดียว</button>
+        <button class="seg-c type-btn" data-type="set2" onclick="selectType(this)">ชุด 2 ใบ</button>
+        <button class="seg-c type-btn" data-type="set5" onclick="selectType(this)">ชุด 5 ใบ</button>
+        <button class="seg-c type-btn" data-type="set10" onclick="selectType(this)">ชุด 10 ใบ</button>
+        <button class="seg-c type-btn" data-type="custom" onclick="selectType(this)">กำหนดเอง ✏️</button>
+      </div>
+      <input type="number" id="custom-sheets" class="input-field seg-other hidden" placeholder="ระบุจำนวนใบ/ชุด" min="1" />
+    </div>
+
+    <!-- ── Action Panel: [totals | prices | buttons] ── -->
+    <div class="rap">
+
+      <!-- Left: current-entry totals -->
+      <div class="rap-l">
+        <div class="rap-stat">
+          <div class="rap-s-lbl">ราคารวม</div>
+          <div class="rap-s-num" id="total-amount">0</div>
+          <div class="rap-s-unit">บาท</div>
+        </div>
+        <div class="rap-divider"></div>
+        <div class="rap-stat">
+          <div class="rap-s-lbl">จำนวนบันทึก</div>
+          <div class="rap-s-num" id="qty-display">0</div>
+          <div class="rap-s-unit">ครั้ง</div>
+        </div>
+      </div>
+
+      <!-- Center: price buttons -->
+      <div class="rap-c">
+        <div id="price-grid"></div>
+        <input type="number" id="custom-price" class="input-field seg-other hidden" placeholder="ระบุราคา..." min="1" />
+      </div>
+
+      <!-- Right: Save + Clear (right-hand reach zone) -->
+      <div class="rap-r">
+        <button class="btn-rsave theme-bg" onclick="saveRecord()">บันทึก</button>
+        <button class="btn-rclear" onclick="clearForm()">ล้าง</button>
+      </div>
+
+    </div><!-- end rap -->
+
+    <!-- Note -->
+    <div class="rec-note-row">
+      <input type="text" id="note-field" class="input-field rec-note-inp" placeholder="📝 หมายเหตุ (ถ้ามี)..." />
+    </div>
+
+    <!-- Recent records -->
+    <div class="rec-recent-hdr">
+      <span class="rrh-title">รายการล่าสุดวันนี้</span>
+      <button class="rrh-all" onclick="showPage('history')">ดูทั้งหมด ›</button>
+    </div>
+    <div id="today-table-wrap" style="padding:0 10px 80px"></div>
 
   </div><!-- end page-record -->
 

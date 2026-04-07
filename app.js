@@ -5,6 +5,79 @@
 
 'use strict';
 
+// ── Location Themes ──────────────────────────────────────────
+const LOCATION_THEMES = {
+  'ปตท':           { color: '#1565C0', dark: '#0D47A1', light: '#BBDEFB', bg: '#E3F2FD' },
+  'ตลาดซอย 17':    { color: '#D84315', dark: '#BF360C', light: '#FFCCBC', bg: '#FFF3E0' },
+  'ตลาดพานทอง':    { color: '#00695C', dark: '#004D40', light: '#B2DFDB', bg: '#E0F2F1' },
+  'วัดหนองตำลึง':  { color: '#6A1B9A', dark: '#4A148C', light: '#E1BEE7', bg: '#F3E5F5' },
+  'อื่นๆ':          { color: '#455A64', dark: '#263238', light: '#CFD8DC', bg: '#ECEFF1' },
+};
+
+function applyTheme(loc) {
+  const t = LOCATION_THEMES[loc] || LOCATION_THEMES['ปตท'];
+  const r = document.documentElement.style;
+  r.setProperty('--theme',       t.color);
+  r.setProperty('--theme-dark',  t.dark);
+  r.setProperty('--theme-light', t.light);
+  r.setProperty('--theme-bg',    t.bg);
+  r.setProperty('--theme-text',  t.dark);
+}
+
+function updateStatsBar() {
+  const today = new Date().toISOString().slice(0, 10);
+  const records = loadRecords().filter(r => r.datetime && r.datetime.startsWith(today));
+  const locLbl  = document.getElementById('rsb-loc-lbl');
+  const locVal  = document.getElementById('rsb-loc-val');
+  const allVal  = document.getElementById('rsb-all-val');
+  if (!locVal || !allVal) return;
+
+  const allTotal = records.reduce((a, r) => a + r.total, 0);
+  allVal.textContent = allTotal.toLocaleString('th-TH');
+
+  const loc = state.selectedLocation;
+  if (loc) {
+    const locTotal = records.filter(r => r.location === loc).reduce((a, r) => a + r.total, 0);
+    if (locLbl) locLbl.textContent = loc;
+    locVal.textContent = locTotal.toLocaleString('th-TH');
+  } else {
+    if (locLbl) locLbl.textContent = 'เลือกสถานที่';
+    locVal.textContent = '0';
+  }
+}
+
+function triggerDatetime() {
+  const el = document.getElementById('sell-datetime');
+  if (!el) return;
+  try { el.showPicker(); } catch { el.click(); }
+}
+
+function updateDtBtn() {
+  const el = document.getElementById('sell-datetime');
+  const btn = document.getElementById('a2-dt-btn');
+  if (!el || !btn) return;
+  const v = el.value;
+  if (!v) { btn.textContent = 'เลือกวันเวลา'; return; }
+  const d = new Date(v);
+  btn.textContent = d.toLocaleString('th-TH', {
+    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+}
+
+function shareApp() {
+  const url = 'https://pisitsak48-commits.github.io/789lotto/';
+  if (navigator.share) {
+    navigator.share({ title: 'บันทึกขายล็อตเตอรี่', url }).catch(() => {});
+  } else {
+    navigator.clipboard?.writeText(url).then(() => showToast('คัดลอกลิงก์แล้ว'));
+  }
+}
+
+function toggleNav() {
+  showPage('history');
+}
+
 // ── ข้อมูลชนิดและราคา ──────────────────────────────────────
 const TYPES = {
   single: {
@@ -78,8 +151,9 @@ function genId() {
 // ── Init ────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   initDatetime();
-  updateHeaderDate();
+  updateDtBtn();
   autoSelectLocation();
+  updateStatsBar();
   renderTodaySummary();
 
   // History: เซ็ตวันเริ่มต้นเป็นวันนี้
@@ -99,6 +173,7 @@ function initDatetime() {
   const now = new Date();
   const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
   document.getElementById('sell-datetime').value = local.toISOString().slice(0, 16);
+  updateDtBtn();
 }
 
 function updateHeaderDate() {
@@ -176,6 +251,9 @@ function selectLocation(btn) {
     otherInput.classList.add('hidden');
     otherInput.value = '';
   }
+
+  applyTheme(state.selectedLocation);
+  updateStatsBar();
 }
 
 // ── Type Selection ───────────────────────────────────────────
@@ -313,7 +391,7 @@ function calcTotal() {
   }
   const total = price ? price * state.qty : 0;
   document.getElementById('total-amount').textContent =
-    total > 0 ? total.toLocaleString('th-TH') + ' บาท' : '0 บาท';
+    total > 0 ? total.toLocaleString('th-TH') : '0';
 }
 
 // custom-price listener is attached in the main DOMContentLoaded above
@@ -375,6 +453,7 @@ function saveRecord() {
   showToast(`บันทึกแล้ว ยอด ${total.toLocaleString('th-TH')} บาท`);
   clearForm();
   renderTodaySummary();
+  updateStatsBar();
 }
 
 // ── Clear Form ───────────────────────────────────────────────
@@ -392,7 +471,7 @@ function clearForm() {
   document.getElementById('price-grid').innerHTML = '';
   state = { selectedLocation: prevLocation, selectedType: null, selectedPrice: null, qty: 1 };
   document.getElementById('qty-display').textContent = 0;
-  document.getElementById('total-amount').textContent = '0 บาท';
+  document.getElementById('total-amount').textContent = '0';
 }
 
 // ── Today Summary ────────────────────────────────────────────
