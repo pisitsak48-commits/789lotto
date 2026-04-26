@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>บันทึกการขายล็อตเตอรี่</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=2" />
 
 </head>
 <body>
@@ -127,8 +127,8 @@
 
       <!-- Right: Save + Clear (right-hand reach zone) -->
       <div class="rap-r">
-        <button class="btn-rsave theme-bg" onclick="saveRecord()">บันทึก</button>
-        <button class="btn-rclear" onclick="clearForm()">ล้าง</button>
+        <button type="button" class="btn-rsave theme-bg" onclick="saveRecord()">บันทึก</button>
+        <button type="button" class="btn-rclear" onclick="clearForm()">ล้าง</button>
       </div>
 
     </div><!-- end rap -->
@@ -216,10 +216,10 @@
   </div>
 
   <!-- Modal: เลือกรูปแบบรับเงิน (ก่อนบันทึก) -->
-  <div id="pay-modal" class="modal pay-modal hidden">
+  <div id="pay-modal" class="modal pay-modal pay-modal--closed hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="pay-modal-title">
     <div class="modal-backdrop" onclick="closePayModal()"></div>
     <div class="modal-box pay-modal-box">
-      <h2 class="modal-title">รูปแบบการรับเงิน</h2>
+      <h2 class="modal-title" id="pay-modal-title">รูปแบบการรับเงิน</h2>
       <p class="pay-modal-hint">เลือกก่อนกดยืนยันบันทึก</p>
       <div class="pay-options">
         <button type="button" class="pay-opt" data-pay="cash" id="pay-opt-cash" onclick="selectPayMethod('cash', this)">จ่ายสด</button>
@@ -279,6 +279,6 @@
   <!-- Print area (hidden normally, shown on print) -->
   <div id="print-area" style="display:none"></div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>

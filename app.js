@@ -497,7 +497,23 @@ function saveRecord() {
 }
 
 // ── Modal รูปแบบรับเงิน (ก่อนบันทึกจริง) ────────────────────
+function hidePayModal() {
+  const m = document.getElementById('pay-modal');
+  if (m) {
+    m.classList.add('hidden', 'pay-modal--closed');
+    m.classList.remove('pay-modal--open');
+    m.setAttribute('aria-hidden', 'true');
+  }
+  if (document.body) document.body.classList.remove('modal-lock');
+}
+
 function openPayModal() {
+  const m = document.getElementById('pay-modal');
+  if (!m) {
+    showToast('ไม่พบหน้าต่างรับเงิน — รีเฟรชเพจแล้วลองอีกครั้ง', 'error');
+    pendingSaveRecord = null;
+    return;
+  }
   selectedPayMethod = 'cash';
   document.querySelectorAll('.pay-opt').forEach(b => b.classList.remove('selected'));
   const cashBtn = document.getElementById('pay-opt-cash');
@@ -506,12 +522,16 @@ function openPayModal() {
   if (dw) dw.classList.add('hidden');
   const dn = document.getElementById('pay-debt-note');
   if (dn) dn.value = '';
-  document.getElementById('pay-modal')?.classList.remove('hidden');
+  m.classList.remove('hidden', 'pay-modal--closed');
+  m.classList.add('pay-modal--open');
+  m.setAttribute('aria-hidden', 'false');
+  if (document.body) document.body.classList.add('modal-lock');
+  requestAnimationFrame(() => m.querySelector('.modal-box')?.scrollIntoView({ block: 'end', behavior: 'auto' }));
 }
 
 function closePayModal() {
   pendingSaveRecord = null;
-  document.getElementById('pay-modal')?.classList.add('hidden');
+  hidePayModal();
 }
 
 function selectPayMethod(pay, btn) {
@@ -542,7 +562,7 @@ function confirmPaySave() {
   saveRecords(records);
 
   pendingSaveRecord = null;
-  document.getElementById('pay-modal')?.classList.add('hidden');
+  hidePayModal();
 
   showToast(`บันทึกแล้ว ยอด ${rec.total.toLocaleString('th-TH')} บาท — ${payLabel(pay)}`);
   clearForm();

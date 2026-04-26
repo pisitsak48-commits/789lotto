@@ -747,6 +747,24 @@ select.input-field {
   align-items: flex-end;
 }
 
+/* หน้าต่างรูปแบบรับเงิน — ต้องมองเห็นชัด; รองรับ cache/สเปก .hidden ของเบราเซอร์ */
+#pay-modal.pay-modal--open {
+  display: flex !important;
+  align-items: flex-end;
+  z-index: 10050;
+  visibility: visible;
+  pointer-events: auto;
+}
+#pay-modal.pay-modal--closed.hidden {
+  display: none !important;
+}
+
+body.modal-lock {
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
 .modal-backdrop {
   position: absolute;
   inset: 0;
