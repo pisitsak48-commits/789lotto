@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>บันทึกการขายล็อตเตอรี่</title>
   <link rel="stylesheet" href="styles.css" />
 
@@ -21,6 +21,10 @@
     <button class="nav-btn" data-page="history" onclick="showPage('history')">
       <span class="nav-icon">📅</span>
       <span>ประวัติ</span>
+    </button>
+    <button class="nav-btn" data-page="pending" onclick="showPage('pending')">
+      <span class="nav-icon">⏳</span>
+      <span>ค้าง</span>
     </button>
   </nav>
 
@@ -139,7 +143,7 @@
       <span class="rrh-title">รายการล่าสุดวันนี้</span>
       <button class="rrh-all" onclick="showPage('history')">ดูทั้งหมด ›</button>
     </div>
-    <div id="today-table-wrap" style="padding:0 10px 80px"></div>
+    <div id="today-table-wrap" class="rec-today-pad"></div>
 
   </div><!-- end page-record -->
 
@@ -155,6 +159,12 @@
           <option value="week">7 วันล่าสุด</option>
           <option value="month">เดือนนี้</option>
           <option value="custom">กำหนดเอง</option>
+        </select>
+        <select id="summary-pay-filter" class="input-field summary-pay" onchange="renderSummary()">
+          <option value="all">ทุกรูปแบบ</option>
+          <option value="cash">เฉพาะ จ่ายสด</option>
+          <option value="transfer">เฉพาะ โอน</option>
+          <option value="pending">เฉพาะ ค้าง</option>
         </select>
       </div>
       <div id="custom-date-range" class="hidden">
@@ -179,11 +189,51 @@
       <h1>ประวัติการขาย</h1>
     </header>
     <div class="form-container">
-      <div class="filter-row">
+      <div class="filter-row filter-row-wrap">
         <input type="date" id="history-date" class="input-field" onchange="renderHistory()" />
+        <select id="history-pay-filter" class="input-field history-pay" onchange="renderHistory()">
+          <option value="all">ทุกรูปแบบ</option>
+          <option value="cash">จ่ายสด</option>
+          <option value="transfer">โอน</option>
+          <option value="pending">ค้าง</option>
+        </select>
         <button class="btn-month" onclick="showMonthHistory()">ดูรายเดือน</button>
       </div>
       <div id="history-table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- Page: รายการค้าง (เก็บเงิน) -->
+  <div id="page-pending" class="page hidden">
+    <header class="app-header">
+      <h1>รายการค้าง / ตามเก็บ</h1>
+    </header>
+    <div class="form-container">
+      <p class="page-lead">รวมรายการที่เลือก &quot;ค้าง&quot; ทุกวัน ใช้ไล่เช็กและตามเก็บเงิน</p>
+      <div id="pending-totals" class="pending-totals"></div>
+      <div id="pending-table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- Modal: เลือกรูปแบบรับเงิน (ก่อนบันทึก) -->
+  <div id="pay-modal" class="modal pay-modal hidden">
+    <div class="modal-backdrop" onclick="closePayModal()"></div>
+    <div class="modal-box pay-modal-box">
+      <h2 class="modal-title">รูปแบบการรับเงิน</h2>
+      <p class="pay-modal-hint">เลือกก่อนกดยืนยันบันทึก</p>
+      <div class="pay-options">
+        <button type="button" class="pay-opt" data-pay="cash" id="pay-opt-cash" onclick="selectPayMethod('cash', this)">จ่ายสด</button>
+        <button type="button" class="pay-opt" data-pay="transfer" id="pay-opt-transfer" onclick="selectPayMethod('transfer', this)">โอน</button>
+        <button type="button" class="pay-opt" data-pay="pending" id="pay-opt-pending" onclick="selectPayMethod('pending', this)">ค้าง</button>
+      </div>
+      <div id="pay-debt-wrap" class="hidden">
+        <label for="pay-debt-note">คนที่ค้าง / โน๊ตสั้นๆ <span class="opt-label">(ถ้ามี)</span></label>
+        <input type="text" id="pay-debt-note" class="input-field" placeholder="เช่น น้าแดง, ลค. ป้าย" maxlength="120" inputmode="text" autocomplete="off" />
+      </div>
+      <div class="modal-actions pay-modal-actions">
+        <button class="btn-clear" type="button" onclick="closePayModal()">ยกเลิก</button>
+        <button class="btn-save theme-bg" type="button" onclick="confirmPaySave()">ยืนยันบันทึก</button>
+      </div>
     </div>
   </div>
 
@@ -205,6 +255,16 @@
         <input type="number" id="edit-qty" class="input-field" min="1" oninput="recalcEditTotal()" />
         <label>ยอดรวม</label>
         <input type="text" id="edit-total" class="input-field" readonly />
+        <label>รูปแบบรับเงิน</label>
+        <select id="edit-pay" class="input-field" onchange="onEditPayChange()">
+          <option value="cash">จ่ายสด</option>
+          <option value="transfer">โอน</option>
+          <option value="pending">ค้าง</option>
+        </select>
+        <div id="edit-debt-wrap" class="hidden">
+          <label for="edit-debt-note">คนที่ค้าง / โน๊ต</label>
+          <input type="text" id="edit-debt-note" class="input-field" placeholder="เช่น ชื่อ หรือจุดสังเกต" maxlength="120" />
+        </div>
         <label>หมายเหตุ</label>
         <input type="text" id="edit-note" class="input-field" />
       </div>

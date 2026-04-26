@@ -5,6 +5,35 @@
 
 'use strict';
 
+/**
+ * วันปฏิทินตามเวลาท้องถิ่น (YYYY-MM-DD)
+ * ห้ามใช้ toISOString().slice(0,10) สำหรับ "วันนี้" — บน iPhone/ไทย ช่วงเช้า
+ * (ก่อน 07:00) อาจยังเป็นวันก่อนใน UTC ทำให้ยอด/รายการ "วันนี้" หายหรือปนกับวันอื่น
+ */
+function localYmd(d) {
+  const x = d instanceof Date ? d : new Date(d);
+  const pad = n => String(n).padStart(2, '0');
+  return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`;
+}
+
+function getPayKey(r) {
+  const k = r && r.payMethod;
+  if (k === 'cash' || k === 'transfer' || k === 'pending') return k;
+  return 'cash';
+}
+
+function payLabel(key) {
+  if (key === 'transfer') return 'โอน';
+  if (key === 'pending') return 'ค้าง';
+  return 'จ่ายสด';
+}
+
+function payBadgeClass(key) {
+  if (key === 'transfer') return 'pay-b-trf';
+  if (key === 'pending') return 'pay-b-pen';
+  return 'pay-b-cash';
+}
+
 // ── Location Themes ──────────────────────────────────────────
 const LOCATION_THEMES = {
   'ปตท':           { color: '#1565C0', dark: '#0D47A1', light: '#BBDEFB', bg: '#E3F2FD' },
@@ -25,8 +54,11 @@ function applyTheme(loc) {
 }
 
 function updateStatsBar() {
-  const today = new Date().toISOString().slice(0, 10);
-  const records = loadRecords().filter(r => r.datetime && r.datetime.startsWith(today));
+  const today = localYmd();
+  const records = loadRecords().filter(r => {
+    const d = (r.datetime || '').slice(0, 10);
+    return d && d === today;
+  });
   const locLbl  = document.getElementById('rsb-loc-lbl');
   const locVal  = document.getElementById('rsb-loc-val');
   const allVal  = document.getElementById('rsb-all-val');
@@ -137,6 +169,8 @@ let state = {
 };
 
 let editingId = null;
+let pendingSaveRecord = null;
+let selectedPayMethod = 'cash';
 
 // ── LocalStorage helpers ────────────────────────────────────
 function loadRecords() {
@@ -159,19 +193,26 @@ document.addEventListener('DOMContentLoaded', () => {
   autoSelectLocation();
   updateStatsBar();
   renderTodaySummary();
+  renderPendingPage();
 
-  // History: เซ็ตวันเริ่มต้นเป็นวันนี้
-  const today = new Date().toISOString().slice(0, 10);
+  // History: เซ็ตวันเริ่มต้นเป็นวันนี้ (ตามเวลาท้องถิ่น)
+  const today = localYmd();
   document.getElementById('history-date').value = today;
 
   // Attach custom price input
   const cp = document.getElementById('custom-price');
   if (cp) cp.addEventListener('input', calcTotal);
-});
 
-function toDateString(d) {
-  return d.toISOString().slice(0, 10);
-}
+  // กลับมาเปิดแอปหลังวันเปลี่ยน — รีเฟรชยอด "วันนี้" ตามเวลาท้องถิ่น
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    updateStatsBar();
+    renderTodaySummary();
+    if (document.getElementById('page-summary')?.classList.contains('active')) renderSummary();
+    if (document.getElementById('page-history')?.classList.contains('active')) renderHistory();
+    if (document.getElementById('page-pending')?.classList.contains('active')) renderPendingPage();
+  });
+});
 
 function initDatetime() {
   const now = new Date();
@@ -239,6 +280,7 @@ function showPage(name) {
 
   if (name === 'summary') renderSummary();
   if (name === 'history') renderHistory();
+  if (name === 'pending') renderPendingPage();
 }
 
 // ── Location Selection ───────────────────────────────────────
@@ -450,14 +492,65 @@ function saveRecord() {
     createdAt: new Date().toISOString()
   };
 
+  pendingSaveRecord = record;
+  openPayModal();
+}
+
+// ── Modal รูปแบบรับเงิน (ก่อนบันทึกจริง) ────────────────────
+function openPayModal() {
+  selectedPayMethod = 'cash';
+  document.querySelectorAll('.pay-opt').forEach(b => b.classList.remove('selected'));
+  const cashBtn = document.getElementById('pay-opt-cash');
+  if (cashBtn) cashBtn.classList.add('selected');
+  const dw = document.getElementById('pay-debt-wrap');
+  if (dw) dw.classList.add('hidden');
+  const dn = document.getElementById('pay-debt-note');
+  if (dn) dn.value = '';
+  document.getElementById('pay-modal')?.classList.remove('hidden');
+}
+
+function closePayModal() {
+  pendingSaveRecord = null;
+  document.getElementById('pay-modal')?.classList.add('hidden');
+}
+
+function selectPayMethod(pay, btn) {
+  selectedPayMethod = pay;
+  document.querySelectorAll('.pay-opt').forEach(x => x.classList.remove('selected'));
+  if (btn) btn.classList.add('selected');
+  const debtWrap = document.getElementById('pay-debt-wrap');
+  if (debtWrap) {
+    if (pay === 'pending') {
+      debtWrap.classList.remove('hidden');
+      setTimeout(() => document.getElementById('pay-debt-note')?.focus(), 150);
+    } else {
+      debtWrap.classList.add('hidden');
+    }
+  }
+}
+
+function confirmPaySave() {
+  if (!pendingSaveRecord) return;
+  const pay = selectedPayMethod;
+  const debtNote = pay === 'pending'
+    ? (document.getElementById('pay-debt-note')?.value || '').trim()
+    : '';
+
+  const rec = { ...pendingSaveRecord, payMethod: pay, debtNote };
   const records = loadRecords();
-  records.push(record);
+  records.push(rec);
   saveRecords(records);
 
-  showToast(`บันทึกแล้ว ยอด ${total.toLocaleString('th-TH')} บาท`);
+  pendingSaveRecord = null;
+  document.getElementById('pay-modal')?.classList.add('hidden');
+
+  showToast(`บันทึกแล้ว ยอด ${rec.total.toLocaleString('th-TH')} บาท — ${payLabel(pay)}`);
   clearForm();
   renderTodaySummary();
   updateStatsBar();
+  renderSummary();
+  renderHistory();
+  renderPendingPage();
 }
 
 // ── Clear Form ───────────────────────────────────────────────
@@ -480,8 +573,8 @@ function clearForm() {
 
 // ── Today Summary ────────────────────────────────────────────
 function renderTodaySummary() {
-  const today = new Date().toISOString().slice(0, 10);
-  const records = loadRecords().filter(r => r.datetime && r.datetime.startsWith(today));
+  const today = localYmd();
+  const records = loadRecords().filter(r => (r.datetime || '').slice(0, 10) === today);
   const wrap = document.getElementById('today-table-wrap');
   if (!wrap) return;
 
@@ -495,19 +588,28 @@ function renderTodaySummary() {
 
 // ── Build Table ───────────────────────────────────────────────
 function buildTable(records, showEdit = false) {
-  let html = '<div class="data-table-wrap"><table class="data-table">';
+  const list = [...records].sort(
+    (a, b) => (b.datetime || '').localeCompare(a.datetime || '')
+  );
+  let html = '<div class="data-table-wrap"><table class="data-table data-table--pay">';
   html += '<thead><tr>';
-  html += '<th>เวลา</th><th>สถานที่</th><th>ชนิด</th><th>ราคา</th><th>จำนวน</th><th>รวม</th>';
+  html += '<th>เวลา</th><th>สถานที่</th><th>ชนิด</th><th>ราคา</th><th>จำนวน</th><th>รวม</th><th>จ่าย</th>';
   if (showEdit) html += '<th></th>';
   html += '</tr></thead><tbody>';
 
   let grandTotal = 0;
   let grandQty = 0;
 
-  records.forEach(r => {
+  list.forEach(r => {
     const typeInfo = TYPES[r.type] || {};
     const chip = typeInfo.chip || 'chip-custom';
     const timeStr = r.datetime ? r.datetime.slice(11, 16) : '';
+    const pk = getPayKey(r);
+    const pCls = payBadgeClass(pk);
+    let payCell = `<span class="pay-badge ${pCls}">${payLabel(pk)}</span>`;
+    if (pk === 'pending' && r.debtNote) {
+      payCell += `<div class="pay-debt-txt">${escHtml(r.debtNote)}</div>`;
+    }
     html += '<tr>';
     html += `<td>${timeStr}</td>`;
     html += `<td>${escHtml(r.location)}</td>`;
@@ -515,7 +617,11 @@ function buildTable(records, showEdit = false) {
     html += `<td>${r.price.toLocaleString('th-TH')}</td>`;
     html += `<td>${r.qty}</td>`;
     html += `<td class="td-amount">${r.total.toLocaleString('th-TH')}</td>`;
-    if (showEdit) html += `<td class="td-edit"><button class="btn-edit-row" onclick="openEditModal('${r.id}')">แก้ไข</button></td>`;
+    html += `<td class="td-pay">${payCell}</td>`;
+    if (showEdit) {
+      const safeId = (r.id || '').replace(/'/g, "\\'");
+      html += `<td class="td-edit"><button type="button" class="btn-edit-row" onclick="openEditModal('${safeId}')">แก้ไข</button></td>`;
+    }
     html += '</tr>';
     grandTotal += r.total;
     grandQty += r.qty;
@@ -523,9 +629,10 @@ function buildTable(records, showEdit = false) {
 
   // Total row
   html += '<tr class="total-row">';
-  html += `<td colspan="3">รวม</td>`;
-  html += `<td></td><td>${grandQty}</td>`;
-  html += `<td class="td-amount">${grandTotal.toLocaleString('th-TH')}</td>`;
+  html += '<td colspan="3">รวม</td>';
+  html += '<td></td>';
+  html += `<td>${grandQty}</td>`;
+  html += `<td class="td-amount">${grandTotal.toLocaleString('th-TH')}</td><td></td>`;
   if (showEdit) html += '<td></td>';
   html += '</tr>';
 
@@ -547,8 +654,17 @@ function openEditModal(id) {
   document.getElementById('edit-qty').value = rec.qty || '';
   document.getElementById('edit-total').value = (rec.total || 0).toLocaleString('th-TH') + ' บาท';
   document.getElementById('edit-note').value = rec.note || '';
+  document.getElementById('edit-pay').value = getPayKey(rec);
+  document.getElementById('edit-debt-note').value = rec.debtNote || '';
+  onEditPayChange();
 
   document.getElementById('edit-modal').classList.remove('hidden');
+}
+
+function onEditPayChange() {
+  const v = document.getElementById('edit-pay')?.value;
+  const w = document.getElementById('edit-debt-wrap');
+  if (w) w.classList.toggle('hidden', v !== 'pending');
 }
 
 function closeEditModal() {
@@ -573,6 +689,11 @@ function saveEdit() {
   if (isNaN(price) || price <= 0) return showToast('ราคาไม่ถูกต้อง', 'error');
   if (isNaN(qty) || qty < 1) return showToast('จำนวนไม่ถูกต้อง', 'error');
 
+  const pay = document.getElementById('edit-pay')?.value || 'cash';
+  const debtNote = pay === 'pending'
+    ? (document.getElementById('edit-debt-note')?.value || '').trim()
+    : '';
+
   records[idx] = {
     ...records[idx],
     datetime: document.getElementById('edit-datetime').value,
@@ -580,7 +701,9 @@ function saveEdit() {
     price,
     qty,
     total: price * qty,
-    note: document.getElementById('edit-note').value.trim()
+    note: document.getElementById('edit-note').value.trim(),
+    payMethod: pay,
+    debtNote: pay === 'pending' ? debtNote : ''
   };
 
   saveRecords(records);
@@ -589,6 +712,7 @@ function saveEdit() {
   renderTodaySummary();
   renderSummary();
   renderHistory();
+  renderPendingPage();
 }
 
 function deleteRecord() {
@@ -601,6 +725,7 @@ function deleteRecord() {
   renderTodaySummary();
   renderSummary();
   renderHistory();
+  renderPendingPage();
 }
 
 // ── Summary Page ──────────────────────────────────────────────
@@ -615,19 +740,29 @@ function renderSummary() {
   }
 
   const { start, end } = getPeriodRange(period);
-  const records = loadRecords().filter(r => {
+  const inRange = loadRecords().filter(r => {
     const d = r.datetime ? r.datetime.slice(0, 10) : '';
     return d >= start && d <= end;
   });
 
+  const payF = document.getElementById('summary-pay-filter')?.value || 'all';
+  const records = payF === 'all'
+    ? inRange
+    : inRange.filter(r => getPayKey(r) === payF);
+
+  const cashT = inRange.filter(r => getPayKey(r) === 'cash').reduce((a, r) => a + r.total, 0);
+  const trfT = inRange.filter(r => getPayKey(r) === 'transfer').reduce((a, r) => a + r.total, 0);
+  const penT = inRange.filter(r => getPayKey(r) === 'pending').reduce((a, r) => a + r.total, 0);
+
   // Cards
   const totalSales = records.reduce((a, r) => a + r.total, 0);
   const totalQty = records.reduce((a, r) => a + r.qty, 0);
+  const filterHint = payF === 'all' ? 'ช่วงที่เลือก' : 'ตามตัวกรองด้านบน';
   const cardsEl = document.getElementById('summary-cards');
   cardsEl.innerHTML = `
     <div class="summary-cards">
       <div class="summary-card">
-        <div class="card-label">ยอดขายรวม</div>
+        <div class="card-label">ยอดรวม (${filterHint})</div>
         <div class="card-value">${totalSales.toLocaleString('th-TH')}</div>
         <div class="card-sub">บาท</div>
       </div>
@@ -635,6 +770,20 @@ function renderSummary() {
         <div class="card-label">จำนวนรายการ</div>
         <div class="card-value">${records.length}</div>
         <div class="card-sub">รายการ (${totalQty} หน่วย)</div>
+      </div>
+    </div>
+    <div class="pay-breakdown">
+      <div class="pay-mini pay-mini-cash">
+        <span class="pm-l">จ่ายสด</span>
+        <span class="pm-v">${cashT.toLocaleString('th-TH')}</span>
+      </div>
+      <div class="pay-mini pay-mini-trf">
+        <span class="pm-l">โอน</span>
+        <span class="pm-v">${trfT.toLocaleString('th-TH')}</span>
+      </div>
+      <div class="pay-mini pay-mini-pen">
+        <span class="pm-l">ค้าง</span>
+        <span class="pm-v">${penT.toLocaleString('th-TH')}</span>
       </div>
     </div>
   `;
@@ -658,15 +807,16 @@ function renderSummary() {
 }
 
 function getPeriodRange(period) {
-  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const today = localYmd(now);
   if (period === 'today') return { start: today, end: today };
   if (period === 'week') {
-    const d = new Date(); d.setDate(d.getDate() - 6);
-    return { start: d.toISOString().slice(0, 10), end: today };
+    const startD = new Date(now);
+    startD.setDate(startD.getDate() - 6);
+    return { start: localYmd(startD), end: today };
   }
   if (period === 'month') {
-    const d = new Date();
-    const start = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+    const start = localYmd(new Date(now.getFullYear(), now.getMonth(), 1));
     return { start, end: today };
   }
   if (period === 'custom') {
@@ -682,7 +832,11 @@ function renderHistory() {
   const dateVal = document.getElementById('history-date')?.value;
   if (!dateVal) return;
 
-  const records = loadRecords().filter(r => r.datetime && r.datetime.startsWith(dateVal));
+  const payF = document.getElementById('history-pay-filter')?.value || 'all';
+  let records = loadRecords().filter(r => r.datetime && r.datetime.startsWith(dateVal));
+  if (payF !== 'all') {
+    records = records.filter(r => getPayKey(r) === payF);
+  }
   const wrap = document.getElementById('history-table-wrap');
 
   if (records.length === 0) {
@@ -697,7 +851,11 @@ function showMonthHistory() {
   const dateVal = document.getElementById('history-date')?.value;
   if (!dateVal) return;
   const month = dateVal.slice(0, 7); // YYYY-MM
-  const records = loadRecords().filter(r => r.datetime && r.datetime.startsWith(month));
+  const payF = document.getElementById('history-pay-filter')?.value || 'all';
+  let records = loadRecords().filter(r => r.datetime && r.datetime.startsWith(month));
+  if (payF !== 'all') {
+    records = records.filter(r => getPayKey(r) === payF);
+  }
   const wrap = document.getElementById('history-table-wrap');
 
   if (records.length === 0) {
@@ -724,6 +882,34 @@ function showMonthHistory() {
   wrap.innerHTML = html;
 }
 
+// ── หน้า รายการค้าง (รวมทุกวัน) ──────────────────────────────
+function renderPendingPage() {
+  const wrap = document.getElementById('pending-table-wrap');
+  const totEl = document.getElementById('pending-totals');
+  if (!wrap) return;
+
+  const all = loadRecords().filter(r => getPayKey(r) === 'pending');
+  all.sort((a, b) => (b.datetime || '').localeCompare(a.datetime || ''));
+  const sum = all.reduce((a, r) => a + r.total, 0);
+
+  if (totEl) {
+    totEl.innerHTML = `
+    <div class="pending-cards">
+      <div class="summary-card">
+        <div class="card-label">ยอดค้างรวม (ทุกรายการ)</div>
+        <div class="card-value">${sum.toLocaleString('th-TH')}</div>
+        <div class="card-sub">บาท — ${all.length} รายการ</div>
+      </div>
+    </div>`;
+  }
+
+  if (all.length === 0) {
+    wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div>ตอนนี้ยังไม่มียอดค้าง</div>';
+    return;
+  }
+  wrap.innerHTML = buildTable(all, true);
+}
+
 // ── Export CSV ────────────────────────────────────────────────
 function exportCSV() {
   const period = document.getElementById('summary-period')?.value;
@@ -735,7 +921,7 @@ function exportCSV() {
 
   if (records.length === 0) return showToast('ไม่มีข้อมูลสำหรับ Export', 'error');
 
-  const header = ['วันเวลา', 'สถานที่', 'ชนิด', 'ราคาต่อหน่วย', 'จำนวน', 'ยอดรวม', 'หมายเหตุ'];
+  const header = ['วันเวลา', 'สถานที่', 'ชนิด', 'ราคาต่อหน่วย', 'จำนวน', 'ยอดรวม', 'รูปแบบรับเงิน', 'โน๊ตคนค้าง', 'หมายเหตุ'];
   const rows = records.map(r => [
     r.datetime || '',
     r.location || '',
@@ -743,6 +929,8 @@ function exportCSV() {
     r.price || 0,
     r.qty || 0,
     r.total || 0,
+    payLabel(getPayKey(r)),
+    r.debtNote || '',
     r.note || ''
   ]);
 
@@ -780,6 +968,7 @@ function exportPDF() {
   records.forEach((r, i) => {
     const bg = i % 2 === 0 ? '#ffffff' : '#f0f4f8';
     const time = r.datetime ? r.datetime.replace('T', ' ').slice(0, 16) : '';
+    const pk = getPayKey(r);
     rows += `<tr style="background:${bg}">
       <td style="padding:6px 5px">${escHtml(time)}</td>
       <td style="padding:6px 5px">${escHtml(r.location)}</td>
@@ -787,6 +976,8 @@ function exportPDF() {
       <td style="padding:6px 5px;text-align:right">${(r.price||0).toLocaleString('th-TH')}</td>
       <td style="padding:6px 5px;text-align:center">${r.qty}</td>
       <td style="padding:6px 5px;text-align:right;font-weight:700;color:#0D47A1">${(r.total||0).toLocaleString('th-TH')}</td>
+      <td style="padding:6px 5px;font-size:11px">${escHtml(payLabel(pk))}</td>
+      <td style="padding:6px 5px;font-size:11px">${escHtml((pk === 'pending' && r.debtNote) ? r.debtNote : '')}</td>
       <td style="padding:6px 5px">${escHtml(r.note || '')}</td>
     </tr>`;
   });
@@ -827,14 +1018,15 @@ function exportPDF() {
     <thead><tr>
       <th>วันเวลา</th><th>สถานที่</th><th>ชนิด</th>
       <th style="text-align:right">ราคา</th><th style="text-align:center">จำนวน</th>
-      <th style="text-align:right">รวม</th><th>หมายเหตุ</th>
+      <th style="text-align:right">รวม</th>
+      <th>จ่าย</th><th>คนค้าง</th><th>หมายเหตุ</th>
     </tr></thead>
     <tbody>${rows}</tbody>
     <tfoot><tr>
       <td colspan="4">รวมทั้งหมด</td>
       <td style="text-align:center">${totalQty}</td>
       <td style="text-align:right;color:#0D47A1">${totalSales.toLocaleString('th-TH')}</td>
-      <td></td>
+      <td colspan="3"></td>
     </tr></tfoot>
   </table>
   <script>window.onload = function(){ window.print(); }<\/script>
