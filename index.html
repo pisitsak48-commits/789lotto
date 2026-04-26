@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>บันทึกการขายล็อตเตอรี่</title>
-  <link rel="stylesheet" href="styles.css?v=2" />
+  <link rel="stylesheet" href="styles.css?v=5" />
 
 </head>
 <body>
@@ -138,10 +138,10 @@
       <input type="text" id="note-field" class="input-field rec-note-inp" placeholder="📝 หมายเหตุ (ถ้ามี)..." />
     </div>
 
-    <!-- Recent records -->
+    <!-- รายการล่าสุด: บรรทัดบนสุด = เพิ่งบันทึก (sort + scroll หลังบันทึก) -->
     <div class="rec-recent-hdr">
       <span class="rrh-title">รายการล่าสุดวันนี้</span>
-      <button class="rrh-all" onclick="showPage('history')">ดูทั้งหมด ›</button>
+      <button class="rrh-all" type="button" onclick="showPage('history')">ดูทั้งหมด ›</button>
     </div>
     <div id="today-table-wrap" class="rec-today-pad"></div>
 
@@ -279,6 +279,6 @@
   <!-- Print area (hidden normally, shown on print) -->
   <div id="print-area" style="display:none"></div>
 
-  <script src="app.js?v=2"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

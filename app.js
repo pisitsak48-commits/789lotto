@@ -34,6 +34,52 @@ function payBadgeClass(key) {
   return 'pay-b-cash';
 }
 
+/** ล่าสุดก่อน: วัน/เวลา → เวลาที่กดบันทึก → id */
+function compareNewestFirst(a, b) {
+  const na = String(a?.datetime || '').trim().replace(' ', 'T');
+  const nb = String(b?.datetime || '').trim().replace(' ', 'T');
+  if (na !== nb) return nb.localeCompare(na, 'en', { numeric: true });
+  const cca = a?.createdAt || '';
+  const ccb = b?.createdAt || '';
+  if (cca !== ccb) return ccb.localeCompare(cca, 'en', { numeric: true });
+  return String(b?.id || '').localeCompare(String(a?.id || ''), 'en', { numeric: true });
+}
+
+/**
+ * วันขาย/จัดกลุ่ม (YYYY-MM-DD)
+ * - รองรับ 2026-4-7, รูปแบบ iOS, string แปลก
+ * - ลอง new Date แล้วใช้ localYmd(วันในปฏิทินเครื่อง) — กันค่า string กับ "วันนี้" หลุดเฟรม
+ * - ถ้ายัง parse ไม่ได้ ค่อยใช้ createdAt
+ */
+function recordSaleYmd(r) {
+  if (!r) return '';
+  const raw = String(r.datetime || '').trim();
+  if (raw) {
+    const m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) {
+      return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+    }
+    const p = new Date(raw);
+    if (!isNaN(p.getTime())) {
+      return localYmd(p);
+    }
+  }
+  if (r.createdAt) {
+    try { return localYmd(new Date(r.createdAt)); }
+    catch { return ''; }
+  }
+  return '';
+}
+
+function timeFromDatetimeValue(s) {
+  if (!s) return '';
+  const t = String(s).trim().replace(' ', 'T');
+  if (t.length >= 16) return t.slice(11, 16);
+  const hm = t.match(/T(\d{1,2}):(\d{2})/);
+  if (hm) return `${String(hm[1]).padStart(2, '0')}:${hm[2]}`;
+  return '';
+}
+
 // ── Location Themes ──────────────────────────────────────────
 const LOCATION_THEMES = {
   'ปตท':           { color: '#1565C0', dark: '#0D47A1', light: '#BBDEFB', bg: '#E3F2FD' },
@@ -55,10 +101,7 @@ function applyTheme(loc) {
 
 function updateStatsBar() {
   const today = localYmd();
-  const records = loadRecords().filter(r => {
-    const d = (r.datetime || '').slice(0, 10);
-    return d && d === today;
-  });
+  const records = loadRecords().filter(r => recordSaleYmd(r) === today);
   const locLbl  = document.getElementById('rsb-loc-lbl');
   const locVal  = document.getElementById('rsb-loc-val');
   const allVal  = document.getElementById('rsb-all-val');
@@ -216,8 +259,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initDatetime() {
   const now = new Date();
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-  document.getElementById('sell-datetime').value = local.toISOString().slice(0, 16);
+  const pad = n => String(n).padStart(2, '0');
+  const y = now.getFullYear();
+  const mo = pad(now.getMonth() + 1);
+  const d = pad(now.getDate());
+  const h = pad(now.getHours());
+  const m = pad(now.getMinutes());
+  const el = document.getElementById('sell-datetime');
+  if (el) {
+    el.value = `${y}-${mo}-${d}T${h}:${m}`;
+  }
   updateDtBtn();
 }
 
@@ -559,18 +610,28 @@ function confirmPaySave() {
   const rec = { ...pendingSaveRecord, payMethod: pay, debtNote };
   const records = loadRecords();
   records.push(rec);
-  saveRecords(records);
+  try {
+    saveRecords(records);
+  } catch (e) {
+    console.error(e);
+    showToast('เซฟข้อมูลไม่สำเร็จ — พื้นที่อาจเต็ม', 'error');
+    return;
+  }
 
   pendingSaveRecord = null;
   hidePayModal();
 
   showToast(`บันทึกแล้ว ยอด ${rec.total.toLocaleString('th-TH')} บาท — ${payLabel(pay)}`);
   clearForm();
-  renderTodaySummary();
-  updateStatsBar();
-  renderSummary();
-  renderHistory();
-  renderPendingPage();
+  function afterSaveRefresh() {
+    renderTodaySummary({ scrollTo: true });
+    updateStatsBar();
+    renderSummary();
+    renderHistory();
+    renderPendingPage();
+  }
+  afterSaveRefresh();
+  setTimeout(afterSaveRefresh, 100);
 }
 
 // ── Clear Form ───────────────────────────────────────────────
@@ -592,9 +653,9 @@ function clearForm() {
 }
 
 // ── Today Summary ────────────────────────────────────────────
-function renderTodaySummary() {
+function renderTodaySummary(opts) {
   const today = localYmd();
-  const records = loadRecords().filter(r => (r.datetime || '').slice(0, 10) === today);
+  const records = loadRecords().filter(r => recordSaleYmd(r) === today);
   const wrap = document.getElementById('today-table-wrap');
   if (!wrap) return;
 
@@ -603,14 +664,24 @@ function renderTodaySummary() {
     return;
   }
 
-  wrap.innerHTML = buildTable(records, true);
+  try {
+    wrap.innerHTML = buildTable(records, true);
+  } catch (err) {
+    console.error('buildTable', err);
+    showToast('แสดงรายการไม่สำเร็จ — ลองรีเฟรชเพจ', 'error');
+    wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div>แสดงตารางผิดพลาด ลองรีเฟรช</div>';
+    return;
+  }
+  if (opts && opts.scrollTo && document.getElementById('page-record')?.classList.contains('active')) {
+    requestAnimationFrame(() => {
+      wrap.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+  }
 }
 
 // ── Build Table ───────────────────────────────────────────────
 function buildTable(records, showEdit = false) {
-  const list = [...records].sort(
-    (a, b) => (b.datetime || '').localeCompare(a.datetime || '')
-  );
+  const list = [...records].sort(compareNewestFirst);
   let html = '<div class="data-table-wrap"><table class="data-table data-table--pay">';
   html += '<thead><tr>';
   html += '<th>เวลา</th><th>สถานที่</th><th>ชนิด</th><th>ราคา</th><th>จำนวน</th><th>รวม</th><th>จ่าย</th>';
@@ -623,9 +694,15 @@ function buildTable(records, showEdit = false) {
   list.forEach(r => {
     const typeInfo = TYPES[r.type] || {};
     const chip = typeInfo.chip || 'chip-custom';
-    const timeStr = r.datetime ? r.datetime.slice(11, 16) : '';
+    const timeStr = timeFromDatetimeValue(r.datetime);
     const pk = getPayKey(r);
     const pCls = payBadgeClass(pk);
+    const priceN = Number(r.price);
+    const qtyN = Number(r.qty);
+    const totN = Number(r.total);
+    const priceOut = Number.isFinite(priceN) ? priceN : 0;
+    const qtyOut = Number.isFinite(qtyN) ? qtyN : 0;
+    const totOut = Number.isFinite(totN) ? totN : 0;
     let payCell = `<span class="pay-badge ${pCls}">${payLabel(pk)}</span>`;
     if (pk === 'pending' && r.debtNote) {
       payCell += `<div class="pay-debt-txt">${escHtml(r.debtNote)}</div>`;
@@ -634,17 +711,17 @@ function buildTable(records, showEdit = false) {
     html += `<td>${timeStr}</td>`;
     html += `<td>${escHtml(r.location)}</td>`;
     html += `<td><span class="chip ${chip}">${escHtml(r.typeLabel || r.type)}</span></td>`;
-    html += `<td>${r.price.toLocaleString('th-TH')}</td>`;
-    html += `<td>${r.qty}</td>`;
-    html += `<td class="td-amount">${r.total.toLocaleString('th-TH')}</td>`;
+    html += `<td>${priceOut.toLocaleString('th-TH')}</td>`;
+    html += `<td>${String(qtyOut)}</td>`;
+    html += `<td class="td-amount">${totOut.toLocaleString('th-TH')}</td>`;
     html += `<td class="td-pay">${payCell}</td>`;
     if (showEdit) {
       const safeId = (r.id || '').replace(/'/g, "\\'");
       html += `<td class="td-edit"><button type="button" class="btn-edit-row" onclick="openEditModal('${safeId}')">แก้ไข</button></td>`;
     }
     html += '</tr>';
-    grandTotal += r.total;
-    grandQty += r.qty;
+    grandTotal += totOut;
+    grandQty += qtyOut;
   });
 
   // Total row
@@ -761,8 +838,8 @@ function renderSummary() {
 
   const { start, end } = getPeriodRange(period);
   const inRange = loadRecords().filter(r => {
-    const d = r.datetime ? r.datetime.slice(0, 10) : '';
-    return d >= start && d <= end;
+    const d = recordSaleYmd(r);
+    return d && d >= start && d <= end;
   });
 
   const payF = document.getElementById('summary-pay-filter')?.value || 'all';
@@ -853,7 +930,7 @@ function renderHistory() {
   if (!dateVal) return;
 
   const payF = document.getElementById('history-pay-filter')?.value || 'all';
-  let records = loadRecords().filter(r => r.datetime && r.datetime.startsWith(dateVal));
+  let records = loadRecords().filter(r => recordSaleYmd(r) === dateVal);
   if (payF !== 'all') {
     records = records.filter(r => getPayKey(r) === payF);
   }
@@ -872,7 +949,10 @@ function showMonthHistory() {
   if (!dateVal) return;
   const month = dateVal.slice(0, 7); // YYYY-MM
   const payF = document.getElementById('history-pay-filter')?.value || 'all';
-  let records = loadRecords().filter(r => r.datetime && r.datetime.startsWith(month));
+  let records = loadRecords().filter(r => {
+    const d = recordSaleYmd(r);
+    return d && d.slice(0, 7) === month;
+  });
   if (payF !== 'all') {
     records = records.filter(r => getPayKey(r) === payF);
   }
@@ -886,7 +966,8 @@ function showMonthHistory() {
   // Group by date
   const byDate = {};
   records.forEach(r => {
-    const d = r.datetime.slice(0, 10);
+    const d = recordSaleYmd(r);
+    if (!d) return;
     if (!byDate[d]) byDate[d] = [];
     byDate[d].push(r);
   });
@@ -935,8 +1016,8 @@ function exportCSV() {
   const period = document.getElementById('summary-period')?.value;
   const { start, end } = getPeriodRange(period);
   const records = loadRecords().filter(r => {
-    const d = r.datetime ? r.datetime.slice(0, 10) : '';
-    return d >= start && d <= end;
+    const d = recordSaleYmd(r);
+    return d && d >= start && d <= end;
   });
 
   if (records.length === 0) return showToast('ไม่มีข้อมูลสำหรับ Export', 'error');
@@ -975,8 +1056,8 @@ function exportPDF() {
   const period = document.getElementById('summary-period')?.value;
   const { start, end } = getPeriodRange(period);
   const records = loadRecords().filter(r => {
-    const d = r.datetime ? r.datetime.slice(0, 10) : '';
-    return d >= start && d <= end;
+    const d = recordSaleYmd(r);
+    return d && d >= start && d <= end;
   });
 
   if (records.length === 0) return showToast('ไม่มีข้อมูลสำหรับ Export', 'error');
