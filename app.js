@@ -11,7 +11,13 @@
  * (ก่อน 07:00) อาจยังเป็นวันก่อนใน UTC ทำให้ยอด/รายการ "วันนี้" หายหรือปนกับวันอื่น
  */
 function localYmd(d) {
-  const x = d instanceof Date ? d : new Date(d);
+  let x;
+  if (d == null) {
+    x = new Date();
+  } else {
+    x = d instanceof Date ? d : new Date(d);
+  }
+  if (isNaN(x.getTime())) x = new Date();
   const pad = n => String(n).padStart(2, '0');
   return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`;
 }
@@ -53,7 +59,7 @@ function compareNewestFirst(a, b) {
  */
 function recordSaleYmd(r) {
   if (!r) return '';
-  const raw = String(r.datetime || '').trim();
+  const raw = String(r.datetime || '').trim().replace(/^\uFEFF/, '');
   if (raw) {
     const m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
     if (m) {
@@ -329,8 +335,19 @@ function showPage(name) {
   const navBtn = document.querySelector(`.nav-btn[data-page="${name}"]`);
   if (navBtn) navBtn.classList.add('active');
 
+  if (name === 'record') {
+    updateStatsBar();
+    renderTodaySummary();
+  }
   if (name === 'summary') renderSummary();
-  if (name === 'history') renderHistory();
+  if (name === 'history') {
+    const hd = document.getElementById('history-date');
+    if (hd) {
+      const v = (hd.value || '').trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) hd.value = localYmd();
+    }
+    renderHistory();
+  }
   if (name === 'pending') renderPendingPage();
 }
 
@@ -622,16 +639,25 @@ function confirmPaySave() {
   hidePayModal();
 
   showToast(`บันทึกแล้ว ยอด ${rec.total.toLocaleString('th-TH')} บาท — ${payLabel(pay)}`);
-  clearForm();
-  function afterSaveRefresh() {
+  function afterSaveScroll() {
     renderTodaySummary({ scrollTo: true });
     updateStatsBar();
     renderSummary();
     renderHistory();
     renderPendingPage();
   }
-  afterSaveRefresh();
-  setTimeout(afterSaveRefresh, 100);
+  function afterSaveRefreshQuiet() {
+    renderTodaySummary();
+    updateStatsBar();
+    renderSummary();
+    renderHistory();
+    renderPendingPage();
+  }
+  // รีเฟรชก่อน clearForm; rAF/timeout รอบเพิ่มรอง WebKit มือถือ (scroll เฉพาะรอบแรก)
+  afterSaveScroll();
+  requestAnimationFrame(() => afterSaveRefreshQuiet());
+  setTimeout(afterSaveRefreshQuiet, 100);
+  clearForm();
 }
 
 // ── Clear Form ───────────────────────────────────────────────
@@ -926,8 +952,11 @@ function getPeriodRange(period) {
 
 // ── History Page ──────────────────────────────────────────────
 function renderHistory() {
-  const dateVal = document.getElementById('history-date')?.value;
-  if (!dateVal) return;
+  const hIn = document.getElementById('history-date');
+  if (!hIn) return;
+  const hRaw = (hIn.value || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(hRaw)) hIn.value = localYmd();
+  const dateVal = hIn.value;
 
   const payF = document.getElementById('history-pay-filter')?.value || 'all';
   let records = loadRecords().filter(r => recordSaleYmd(r) === dateVal);
