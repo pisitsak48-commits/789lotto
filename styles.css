@@ -121,6 +121,44 @@ body {
 .page { display: none; }
 .page.active { display: block; }
 .page.hidden { display: none; }
+/* หน้าบันทึก: ไม่ให้ document สกอร์ลตามรายการ — รายการวันนี้สกอร์ลแยก */
+#page-record.active {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - var(--nav-height) - env(safe-area-inset-bottom, 0px));
+  min-height: 0;
+  overflow: hidden;
+}
+.rec-page-top {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.rec-today-block {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  background: var(--surface2);
+  overflow: hidden;
+}
+.rec-today-block .rec-recent-hdr {
+  flex: 0 0 auto;
+  background: var(--surface2);
+  padding-top: 8px;
+}
+#today-table-wrap.rec-today-pad {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 0 10px 12px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+}
 
 /* ===== Form Container ===== */
 .form-container {
@@ -1281,9 +1319,6 @@ body.modal-lock {
   padding: 0;
 }
 
-.rec-today-pad {
-  padding: 0 10px calc(72px + env(safe-area-inset-bottom, 0px));
-}
 
 /* Old compact header (kept for reference, hidden in new layout) */
 .rec-header {

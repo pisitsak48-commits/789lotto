@@ -594,7 +594,7 @@ function openPayModal() {
   m.classList.add('pay-modal--open');
   m.setAttribute('aria-hidden', 'false');
   if (document.body) document.body.classList.add('modal-lock');
-  requestAnimationFrame(() => m.querySelector('.modal-box')?.scrollIntoView({ block: 'end', behavior: 'auto' }));
+  /* ไม่ใช้ scrollIntoView: กันหน้าหลักเลื่อนตอนเปิด modal (โมดัลเป็น fixed) */
 }
 
 function closePayModal() {
@@ -700,7 +700,8 @@ function renderTodaySummary(opts) {
   }
   if (opts && opts.scrollTo && document.getElementById('page-record')?.classList.contains('active')) {
     requestAnimationFrame(() => {
-      wrap.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      /* เลื่อนเฉพาะกล่องรายการวันนี้ — รายการใหม่อยู่บรรทัดบนสุด */
+      wrap.scrollTop = 0;
     });
   }
 }

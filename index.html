@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>บันทึกการขายล็อตเตอรี่</title>
-  <link rel="stylesheet" href="styles.css?v=5" />
+  <link rel="stylesheet" href="styles.css?v=6" />
 
 </head>
 <body>
@@ -28,8 +28,9 @@
     </button>
   </nav>
 
-  <!-- Page: บันทึก -->
+  <!-- Page: บันทึก (เลย์เอาต์ flex: ฟอร์มบน / รายการวันนี้สกอร์ลภายใน) -->
   <div id="page-record" class="page active">
+    <div class="rec-page-top">
 
     <!-- ── App Header ── -->
     <header class="app2-hdr">
@@ -138,12 +139,16 @@
       <input type="text" id="note-field" class="input-field rec-note-inp" placeholder="📝 หมายเหตุ (ถ้ามี)..." />
     </div>
 
-    <!-- รายการล่าสุด: บรรทัดบนสุด = เพิ่งบันทึก (sort + scroll หลังบันทึก) -->
+    </div><!-- end rec-page-top -->
+
+    <!-- รายการล่าสุด: บรรทัดบนสุด = เพิ่งบันทึก (sort + scroll ภายในพื้นที่ rec-today-pad) -->
+    <div class="rec-today-block">
     <div class="rec-recent-hdr">
       <span class="rrh-title">รายการล่าสุดวันนี้</span>
       <button class="rrh-all" type="button" onclick="showPage('history')">ดูทั้งหมด ›</button>
     </div>
     <div id="today-table-wrap" class="rec-today-pad"></div>
+    </div><!-- end rec-today-block -->
 
   </div><!-- end page-record -->
 
@@ -279,6 +284,6 @@
   <!-- Print area (hidden normally, shown on print) -->
   <div id="print-area" style="display:none"></div>
 
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>
