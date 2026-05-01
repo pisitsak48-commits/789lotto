@@ -218,8 +218,42 @@ let state = {
 };
 
 let editingId = null;
-let pendingSaveRecord = null;
+/** รายการจะบันทึกหลังเลือกจ่ายเงิน — เป็น array เสมอ (1 บรรทัดก็เป็น length 1) */
+let pendingSaveBatch = null;
 let selectedPayMethod = 'cash';
+
+/** true เมื่อผู้ใช้แก้ช่องวันเวลามือ (ไม่ให้ระบบทับตอนช่วยเซ็ตเวลาปัจจุบัน) */
+let datetimeUserTouched = false;
+
+/** คิวขายหลายชนิด/หลายราคา — เก็บ location ตามตอนกดเพิ่มบรรทัด */
+let saleDraftLines = [];
+
+/** แปลงค่า datetime-local เป็น timestamp ท้องถิ่น (รองรับทั้ง HH:mm และ HH:mm:ss) */
+function parseDatetimeLocalMs(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(s || '').trim());
+  if (!m) return null;
+  const dt = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], 0, 0);
+  return Number.isNaN(dt.getTime()) ? null : dt.getTime();
+}
+
+/** ถ้ายังไม่แก้มือ + เวลาในช่องค้างกว่าเวลาจริงเกินเกณฑ์ → ตั้งเป็นเวลาปัจจุบัน */
+function refreshStaleDatetimeBeforeSale() {
+  if (datetimeUserTouched) return;
+  const el = document.getElementById('sell-datetime');
+  if (!el) return;
+  if (!el.value) {
+    initDatetime();
+    return;
+  }
+  const fieldMs = parseDatetimeLocalMs(el.value);
+  if (fieldMs == null) {
+    initDatetime();
+    return;
+  }
+  const driftMs = Date.now() - fieldMs;
+  const STALE_MS = 2 * 60 * 1000; // เกิน ~2 นาทีจากเวลาจริง = ถือว่าค้าง
+  if (driftMs > STALE_MS) initDatetime();
+}
 
 // ── LocalStorage helpers ────────────────────────────────────
 function loadRecords() {
@@ -244,6 +278,9 @@ document.addEventListener('DOMContentLoaded', () => {
   renderTodaySummary();
   renderPendingPage();
 
+  const sellDt = document.getElementById('sell-datetime');
+  if (sellDt) sellDt.addEventListener('change', () => { datetimeUserTouched = true; });
+
   // History: เซ็ตวันเริ่มต้นเป็นวันนี้ (ตามเวลาท้องถิ่น)
   const today = localYmd();
   document.getElementById('history-date').value = today;
@@ -255,6 +292,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // กลับมาเปิดแอปหลังวันเปลี่ยน — รีเฟรชยอด "วันนี้" ตามเวลาท้องถิ่น
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
+    if (document.getElementById('page-record')?.classList.contains('active')) {
+      refreshStaleDatetimeBeforeSale();
+    }
     updateStatsBar();
     renderTodaySummary();
     if (document.getElementById('page-summary')?.classList.contains('active')) renderSummary();
@@ -264,6 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initDatetime() {
+  datetimeUserTouched = false;
   const now = new Date();
   const pad = n => String(n).padStart(2, '0');
   const y = now.getFullYear();
@@ -336,6 +377,7 @@ function showPage(name) {
   if (navBtn) navBtn.classList.add('active');
 
   if (name === 'record') {
+    refreshStaleDatetimeBeforeSale();
     updateStatsBar();
     renderTodaySummary();
   }
@@ -508,25 +550,33 @@ function calcTotal() {
     total > 0 ? total.toLocaleString('th-TH') : '0';
 }
 
-// custom-price listener is attached in the main DOMContentLoaded above
-
-// ── Save Record ─────────────────────────────────────────────
-function saveRecord() {
-  const datetime = document.getElementById('sell-datetime').value;
-  if (!datetime) return showToast('กรุณาระบุวันเวลา', 'error');
-  if (!state.selectedLocation) return showToast('กรุณาเลือกสถานที่', 'error');
-  if (!state.selectedType) return showToast('กรุณาเลือกชนิดล็อตเตอรี่', 'error');
-
+/** สถานที่ขายปัจจุบัน (รวมช่องอื่นๆ) */
+function resolveLocationForSave() {
   let location = state.selectedLocation;
+  if (!location) return null;
   if (location === 'อื่นๆ') {
-    const ov = document.getElementById('location-other').value.trim();
+    const ov = document.getElementById('location-other')?.value.trim();
     location = ov || 'อื่นๆ';
   }
+  return location;
+}
+
+/**
+ * ข้อมูลบรรทัดขายจากฟอร์มปัจจุบัน (ยังไม่รวม datetime/note/pay)
+ * @param {{ silent?: boolean }} opts silent=true ไม่ toast เวลาข้อมูลไม่ครบ
+ */
+function buildCurrentSaleLine(opts = {}) {
+  const silent = !!opts.silent;
+  const fail = msg => {
+    if (!silent) showToast(msg, 'error');
+    return null;
+  };
+  if (!state.selectedType) return fail('กรุณาเลือกชนิดล็อตเตอรี่');
 
   let price = state.selectedPrice;
   if (price === null) {
     price = parseFloat(document.getElementById('custom-price')?.value);
-    if (isNaN(price) || price <= 0) return showToast('กรุณาระบุราคา', 'error');
+    if (isNaN(price) || price <= 0) return fail('กรุณาระบุราคา');
   }
 
   const typeInfo = TYPES[state.selectedType];
@@ -544,23 +594,115 @@ function saveRecord() {
   }
 
   const total = price * state.qty;
-  const note = document.getElementById('note-field').value.trim();
-
-  const record = {
-    id: genId(),
-    datetime,
-    location,
+  return {
     type: state.selectedType,
     typeLabel,
     sheets,
     price,
     qty: state.qty,
-    total,
-    note,
-    createdAt: new Date().toISOString()
+    total
   };
+}
 
-  pendingSaveRecord = record;
+function partialResetEntryFields() {
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
+  document.querySelectorAll('.price-btn').forEach(b => b.classList.remove('selected'));
+  const cs = document.getElementById('custom-sheets');
+  if (cs) { cs.classList.add('hidden'); cs.value = ''; }
+  const cp = document.getElementById('custom-price');
+  if (cp) { cp.classList.add('hidden'); cp.value = ''; }
+  document.getElementById('price-grid').innerHTML = '';
+  state.selectedType = null;
+  state.selectedPrice = null;
+  state.qty = 1;
+  document.getElementById('qty-display').textContent = '0';
+  document.getElementById('total-amount').textContent = '0';
+}
+
+function renderSaleBatch() {
+  const sec = document.getElementById('sale-batch-section');
+  const wrap = document.getElementById('sale-batch-list');
+  const sumEl = document.getElementById('sale-batch-summary');
+  if (!sec || !wrap) return;
+
+  if (saleDraftLines.length === 0) {
+    sec.classList.add('hidden');
+    wrap.innerHTML = '';
+    if (sumEl) sumEl.textContent = '';
+    return;
+  }
+
+  sec.classList.remove('hidden');
+  let grand = 0;
+  wrap.innerHTML = saleDraftLines.map((l, i) => {
+    grand += l.total;
+    const chip = (TYPES[l.type] || {}).chip || 'chip-custom';
+    const unit = (TYPES[l.type] || {}).unit || 'ชุด';
+    const safeKey = String(l.draftKey).replace(/'/g, "\\'");
+    return `<div class="sale-batch-row">
+      <div class="sale-batch-row-main">
+        <span class="sale-batch-idx">${i + 1}</span>
+        <span class="chip ${chip}">${escHtml(l.typeLabel)}</span>
+        <span class="sale-batch-meta">${l.price.toLocaleString('th-TH')}×${l.qty} ${escHtml(unit)} · <strong>${l.total.toLocaleString('th-TH')}</strong>฿</span>
+      </div>
+      <button type="button" class="sale-batch-del" onclick="removeSaleDraftLine('${safeKey}')" aria-label="ลบบรรทัด">×</button>
+    </div>`;
+  }).join('');
+  if (sumEl) {
+    sumEl.textContent = `${saleDraftLines.length} บรรทัด · ${grand.toLocaleString('th-TH')}฿`;
+  }
+}
+
+function removeSaleDraftLine(draftKey) {
+  saleDraftLines = saleDraftLines.filter(x => String(x.draftKey) !== String(draftKey));
+  renderSaleBatch();
+}
+
+function addBatchLine() {
+  if (!state.selectedLocation) return showToast('กรุณาเลือกสถานที่', 'error');
+  const location = resolveLocationForSave();
+  if (!location) return showToast('กรุณาเลือกสถานที่', 'error');
+
+  const line = buildCurrentSaleLine({ silent: false });
+  if (!line) return;
+
+  saleDraftLines.push({ ...line, draftKey: genId(), location });
+  partialResetEntryFields();
+  renderSaleBatch();
+  showToast(`เพิ่มในคิวแล้ว (${saleDraftLines.length} บรรทัด)`);
+}
+
+// custom-price listener is attached in the main DOMContentLoaded above
+
+// ── Save Record ─────────────────────────────────────────────
+function saveRecord() {
+  refreshStaleDatetimeBeforeSale();
+  const datetime = document.getElementById('sell-datetime').value;
+  if (!datetime) return showToast('กรุณาระบุวันเวลา', 'error');
+  if (!state.selectedLocation) return showToast('กรุณาเลือกสถานที่', 'error');
+
+  const linesFromDraft = saleDraftLines.map(({ draftKey, ...rest }) => ({ ...rest }));
+  const cur = buildCurrentSaleLine({ silent: true });
+  let lines = [...linesFromDraft];
+  if (cur) {
+    const loc = resolveLocationForSave();
+    if (!loc) return showToast('กรุณาเลือกสถานที่', 'error');
+    lines.push({ ...cur, location: loc });
+  }
+
+  if (lines.length === 0) {
+    buildCurrentSaleLine({ silent: false });
+    return;
+  }
+
+  const note = document.getElementById('note-field').value.trim();
+
+  pendingSaveBatch = lines.map(line => ({
+    ...line,
+    datetime,
+    note
+  }));
+
   openPayModal();
 }
 
@@ -579,9 +721,27 @@ function openPayModal() {
   const m = document.getElementById('pay-modal');
   if (!m) {
     showToast('ไม่พบหน้าต่างรับเงิน — รีเฟรชเพจแล้วลองอีกครั้ง', 'error');
-    pendingSaveRecord = null;
+    pendingSaveBatch = null;
     return;
   }
+  if (!pendingSaveBatch || pendingSaveBatch.length === 0) {
+    showToast('ไม่มีรายการจะบันทึก', 'error');
+    pendingSaveBatch = null;
+    return;
+  }
+
+  const info = document.getElementById('pay-modal-batch-info');
+  if (info) {
+    if (pendingSaveBatch.length > 1) {
+      const sum = pendingSaveBatch.reduce((a, l) => a + l.total, 0);
+      info.textContent = `${pendingSaveBatch.length} บรรทัด · รวม ${sum.toLocaleString('th-TH')} บาท`;
+      info.classList.remove('hidden');
+    } else {
+      info.textContent = '';
+      info.classList.add('hidden');
+    }
+  }
+
   selectedPayMethod = 'cash';
   document.querySelectorAll('.pay-opt').forEach(b => b.classList.remove('selected'));
   const cashBtn = document.getElementById('pay-opt-cash');
@@ -598,7 +758,7 @@ function openPayModal() {
 }
 
 function closePayModal() {
-  pendingSaveRecord = null;
+  pendingSaveBatch = null;
   hidePayModal();
 }
 
@@ -618,15 +778,34 @@ function selectPayMethod(pay, btn) {
 }
 
 function confirmPaySave() {
-  if (!pendingSaveRecord) return;
+  if (!pendingSaveBatch || pendingSaveBatch.length === 0) return;
   const pay = selectedPayMethod;
   const debtNote = pay === 'pending'
     ? (document.getElementById('pay-debt-note')?.value || '').trim()
     : '';
 
-  const rec = { ...pendingSaveRecord, payMethod: pay, debtNote };
+  const batch = pendingSaveBatch;
   const records = loadRecords();
-  records.push(rec);
+  const createdAt = new Date().toISOString();
+
+  for (const line of batch) {
+    records.push({
+      id: genId(),
+      datetime: line.datetime,
+      location: line.location,
+      type: line.type,
+      typeLabel: line.typeLabel,
+      sheets: line.sheets,
+      price: line.price,
+      qty: line.qty,
+      total: line.total,
+      note: line.note,
+      createdAt,
+      payMethod: pay,
+      debtNote: pay === 'pending' ? debtNote : ''
+    });
+  }
+
   try {
     saveRecords(records);
   } catch (e) {
@@ -635,10 +814,13 @@ function confirmPaySave() {
     return;
   }
 
-  pendingSaveRecord = null;
+  pendingSaveBatch = null;
   hidePayModal();
 
-  showToast(`บันทึกแล้ว ยอด ${rec.total.toLocaleString('th-TH')} บาท — ${payLabel(pay)}`);
+  const sum = batch.reduce((a, l) => a + l.total, 0);
+  showToast(batch.length > 1
+    ? `บันทึก ${batch.length} บรรทัด รวม ${sum.toLocaleString('th-TH')} บาท — ${payLabel(pay)}`
+    : `บันทึกแล้ว ยอด ${sum.toLocaleString('th-TH')} บาท — ${payLabel(pay)}`);
   function afterSaveScroll() {
     renderTodaySummary({ scrollTo: true });
     updateStatsBar();
@@ -653,7 +835,6 @@ function confirmPaySave() {
     renderHistory();
     renderPendingPage();
   }
-  // รีเฟรชก่อน clearForm; rAF/timeout รอบเพิ่มรอง WebKit มือถือ (scroll เฉพาะรอบแรก)
   afterSaveScroll();
   requestAnimationFrame(() => afterSaveRefreshQuiet());
   setTimeout(afterSaveRefreshQuiet, 100);
@@ -663,6 +844,8 @@ function confirmPaySave() {
 // ── Clear Form ───────────────────────────────────────────────
 function clearForm() {
   const prevLocation = state.selectedLocation; // คงสถานที่ไว้
+  saleDraftLines = [];
+  renderSaleBatch();
   initDatetime();
   document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
   document.querySelectorAll('.price-btn').forEach(b => b.classList.remove('selected'));

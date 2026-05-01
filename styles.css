@@ -1243,6 +1243,22 @@ body.modal-lock {
   border-left: 1px solid var(--border);
 }
 
+.btn-radd {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 8px 6px;
+  background: var(--surface2);
+  border: 2px solid var(--theme);
+  border-radius: var(--radius-sm);
+  color: var(--theme-dark);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+.btn-radd:active { opacity: 0.85; background: var(--theme-bg); }
+
 .btn-rsave {
   flex: 1;
   background: var(--theme);
@@ -1255,7 +1271,7 @@ body.modal-lock {
   cursor: pointer;
   transition: all 0.2s;
   box-shadow: 0 3px 10px rgba(0,0,0,0.18);
-  min-height: 80px;
+  min-height: 56px;
 }
 .btn-rsave:active { opacity: 0.85; transform: scale(0.97); }
 
@@ -1293,6 +1309,103 @@ body.modal-lock {
   width: 100%;
 }
 .rec-note-inp.input-field:focus { border-color: transparent; box-shadow: none; }
+
+/* ── Batch queue (หลายประเภท/หลายราคาก่อนบันทึกครั้งเดียว) ── */
+.sale-batch-section {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 8px 12px 10px;
+}
+.sale-batch-section.hidden { display: none !important; }
+
+.sale-batch-hdr {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.sale-batch-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.sale-batch-summary {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--theme-dark);
+  white-space: nowrap;
+}
+
+.sale-batch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: min(36vh, 200px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.sale-batch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.sale-batch-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.sale-batch-idx {
+  font-weight: 800;
+  color: var(--text-muted);
+  min-width: 1.2em;
+}
+
+.sale-batch-meta {
+  color: var(--text);
+  font-size: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.sale-batch-del {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: rgba(220,38,38,0.08);
+  color: var(--red);
+  border-radius: var(--radius-sm);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.pay-modal-batch-info {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gold);
+  margin: 0 0 10px;
+  text-align: center;
+}
+
+.pay-modal-batch-info.hidden { display: none !important; }
 
 /* ── Recent Records Header ───────────────────────────────── */
 .rec-recent-hdr {

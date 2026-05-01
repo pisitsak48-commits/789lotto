@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>บันทึกการขายล็อตเตอรี่</title>
-  <link rel="stylesheet" href="styles.css?v=6" />
+  <link rel="stylesheet" href="styles.css?v=7" />
 
 </head>
 <body>
@@ -126,13 +126,23 @@
         <input type="number" id="custom-price" class="input-field seg-other hidden" placeholder="ระบุราคา..." min="1" />
       </div>
 
-      <!-- Right: Save + Clear (right-hand reach zone) -->
+      <!-- Right: Add line + Save + Clear (right-hand reach zone) -->
       <div class="rap-r">
+        <button type="button" class="btn-radd" onclick="addBatchLine()">+ เพิ่มบรรทัด</button>
         <button type="button" class="btn-rsave theme-bg" onclick="saveRecord()">บันทึก</button>
         <button type="button" class="btn-rclear" onclick="clearForm()">ล้าง</button>
       </div>
 
     </div><!-- end rap -->
+
+    <!-- คิวบันทึกหลายประเภท/หลายราคาในคราวเดียว -->
+    <div id="sale-batch-section" class="sale-batch-section hidden">
+      <div class="sale-batch-hdr">
+        <span class="sale-batch-title">รายการในคิว</span>
+        <span id="sale-batch-summary" class="sale-batch-summary"></span>
+      </div>
+      <div id="sale-batch-list" class="sale-batch-list"></div>
+    </div>
 
     <!-- Note -->
     <div class="rec-note-row">
@@ -225,6 +235,7 @@
     <div class="modal-backdrop" onclick="closePayModal()"></div>
     <div class="modal-box pay-modal-box">
       <h2 class="modal-title" id="pay-modal-title">รูปแบบการรับเงิน</h2>
+      <p id="pay-modal-batch-info" class="pay-modal-batch-info hidden" aria-live="polite"></p>
       <p class="pay-modal-hint">เลือกก่อนกดยืนยันบันทึก</p>
       <div class="pay-options">
         <button type="button" class="pay-opt" data-pay="cash" id="pay-opt-cash" onclick="selectPayMethod('cash', this)">จ่ายสด</button>
@@ -284,6 +295,6 @@
   <!-- Print area (hidden normally, shown on print) -->
   <div id="print-area" style="display:none"></div>
 
-  <script src="app.js?v=8"></script>
+  <script src="app.js?v=10"></script>
 </body>
 </html>
